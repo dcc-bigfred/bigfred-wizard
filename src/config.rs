@@ -178,10 +178,15 @@ mod tests {
 
     #[test]
     fn ws_base_converts_scheme() {
-        let mut cfg = Config::default();
-        cfg.bigfred_url = "http://127.0.0.1:8080/".into();
+        let cfg = Config {
+            bigfred_url: "http://127.0.0.1:8080/".into(),
+            ..Config::default()
+        };
         assert_eq!(cfg.bigfred_ws_base(), "ws://127.0.0.1:8080");
-        cfg.bigfred_url = "https://hub:8443".into();
+        let cfg = Config {
+            bigfred_url: "https://hub:8443".into(),
+            ..Config::default()
+        };
         assert_eq!(cfg.bigfred_ws_base(), "wss://hub:8443");
     }
 
