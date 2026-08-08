@@ -1,0 +1,132 @@
+{
+  "app": {
+    "title": "BigFred — Wizard",
+    "subtitle": "Event kiosk",
+    "language": "Language",
+    "logout": "Log out",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "close": "Close",
+    "loading": "Loading…",
+    "done": "Done",
+    "home": "Main menu",
+    "disabled": "The wizard is disabled",
+    "disabledHint": "Set \"enabled\": true in /data/etc/bigfred-wizard.json and restart the bigfred-wizard service.",
+    "idleLogout": "Logged out after being idle."
+  },
+  "login": {
+    "heading": "Welcome to the event",
+    "lead": "Sign in with the organizer account to run the wizard for participants.",
+    "button": "Sign in as organizer",
+    "callback": "Finishing sign-in…",
+    "failed": "Sign-in failed",
+    "stateMismatch": "Sign-in state mismatch — please try again.",
+    "loggedInAs": "Signed in as {{login}}"
+  },
+  "home": {
+    "heading": "What would you like to do?",
+    "tiles": {
+      "account": "Create a new account",
+      "accountHint": "Login, PIN and a DCC address pool",
+      "phone": "I want to drive with my phone",
+      "phoneHint": "WiThrottle (Engine Driver, WiThrottle)",
+      "wlanmaus": "Roco Wlanmaus",
+      "wlanmausHint": "Z21 handset",
+      "longfred": "LongFred",
+      "longfredHint": "WiThrottle handset",
+      "loco": "Set up my locomotive",
+      "locoHint": "DCC address and roster entry"
+    }
+  },
+  "account": {
+    "heading": "New participant account",
+    "steps": {
+      "login": "Login",
+      "pin": "PIN",
+      "summary": "Summary"
+    },
+    "loginLabel": "Participant login",
+    "loginHint": "Lowercase, no spaces, e.g. tom",
+    "pinLabel": "PIN (4–6 digits)",
+    "pinRepeat": "Repeat PIN",
+    "pinMismatch": "The PINs do not match.",
+    "pinTooShort": "The PIN must be 4 to 6 digits.",
+    "loginTooShort": "The login needs at least 3 characters.",
+    "summaryLead": "The account gets a pool of {{count}} DCC addresses.",
+    "create": "Create account",
+    "created": "Account {{login}} created.",
+    "pool": "Allocated DCC addresses",
+    "another": "Create another account"
+  },
+  "pair": {
+    "heading": {
+      "phone": "Phone as a throttle (WiThrottle)",
+      "wlanmaus": "Roco Wlanmaus (Z21)",
+      "longfred": "LongFred (WiThrottle)"
+    },
+    "steps": {
+      "user": "Participant",
+      "station": "Command station",
+      "pairing": "Pairing"
+    },
+    "pickUser": "Who is this handset for?",
+    "searchUser": "Search participants",
+    "noUsers": "No accounts yet — create a participant account first.",
+    "allVehicles": "Share all of the participant's vehicles",
+    "start": "Start pairing",
+    "waiting": "Waiting for the handset…",
+    "codeLabel": "Pairing code",
+    "cvLabel": "Set CV3 and CV4",
+    "paired": "Handset paired.",
+    "expired": "The code expired — start pairing again.",
+    "instructionsPhone": "In the WiThrottle app pick the BigFred server, then enter the code as the device name, or select the \"Pair with BigFred\" locomotive (address 3) and press F0–F9 for each digit.",
+    "instructionsWlanmaus": "On the Wlanmaus enter programming mode and set CV3 and CV4 to the values shown, or type the code with the function keys.",
+    "instructionsLongfred": "On LongFred join the BigFred network and enter the pairing code with the function buttons."
+  },
+  "loco": {
+    "heading": "Locomotive setup",
+    "steps": {
+      "user": "Owner",
+      "read": "Read",
+      "address": "New address",
+      "vehicle": "Roster"
+    },
+    "putOnTrack": "Put the locomotive on the programming track.",
+    "readCurrent": "Read the current address",
+    "currentAddress": "Current address: {{address}}",
+    "readFailed": "Could not read the address.",
+    "skipRead": "Skip the read",
+    "newAddress": "New DCC address",
+    "poolHint": "Participant pool: {{ranges}}",
+    "outsidePool": "Address outside the participant's pool — driving may be rejected.",
+    "writeAddress": "Write the address to the decoder",
+    "written": "Address {{address}} written.",
+    "vehicleName": "Vehicle name",
+    "vehicleKind": "Kind",
+    "kinds": {
+      "loco": "Locomotive",
+      "emu": "EMU",
+      "driving_wagon": "Driving wagon",
+      "trolley": "Trolley",
+      "wagon": "Wagon"
+    },
+    "createVehicle": "Add to the roster",
+    "created": "Vehicle {{name}} added to {{login}}'s roster.",
+    "programmingOffline": "Programming unavailable: no dcc-bus connection."
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "unauthorized": "Session expired — please sign in again.",
+    "dcc_bus_unavailable": "No connection to the command station (dcc-bus). Open the layout in BigFred and retry.",
+    "no_programming_station": "No command station has CV programming enabled.",
+    "programming_timeout": "The command station did not answer in time.",
+    "wizard_disabled": "The wizard is disabled in the configuration.",
+    "login_taken": "That login is already taken.",
+    "dcc_pool_exhausted": "No free DCC addresses left in the pool.",
+    "invalid_address": "Invalid DCC address.",
+    "bigfred_unreachable": "The BigFred server is unreachable."
+  }
+}

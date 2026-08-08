@@ -1,0 +1,448 @@
+//! Resilient dcc-bus WebSocket client.
+//!
+//! Programming frames (`loco.cvRead`, `loco.cvWrite`, `loco.addrGet`,
+//! `loco.addrSet`) travel over BigFred's dcc-bus proxy
+//! (`/api/v1/dcc-bus/{commandStationId}/ws?token=…`) using the organizer's
+//! JWT. The socket is opened lazily on the first programming request and
+//! then kept alive with pings; a dropped socket is re-dialled with
+//! exponential backoff and jitter on the next request.
+//!
+//! The daemon that actually drives the command station is spawned by
+//! BigFred when a layout session selects the station. If no daemon is
+//! listening the proxy answers `503`, which surfaces here (and to the
+//! SPA) as `dcc_bus_unavailable` — the organizer has to open the layout
+//! in BigFred once so the station comes up.
+
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex as StdMutex};
+use std::time::Duration;
+
+use axum::http::StatusCode;
+use futures::{SinkExt, StreamExt};
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use tokio::sync::{mpsc, oneshot, Mutex};
+use tokio::task::JoinHandle;
+use tokio_tungstenite::tungstenite::Message;
+
+use crate::config::Config;
+use crate::error::ApiError;
+
+/// dcc-bus frame types used by the wizard.
+pub const FRAME_CV_READ: &str = "loco.cvRead";
+pub const FRAME_CV_WRITE: &str = "loco.cvWrite";
+pub const FRAME_ADDR_GET: &str = "loco.addrGet";
+pub const FRAME_ADDR_SET: &str = "loco.addrSet";
+
+const ACK_TIMEOUT: Duration = Duration::from_secs(30);
+const PING_INTERVAL: Duration = Duration::from_secs(10);
+const CONNECT_ATTEMPTS: u32 = 3;
+const BACKOFF_BASE_MS: u64 = 250;
+const BACKOFF_MAX_MS: u64 = 4_000;
+
+/// `contract.EnvelopeWire` on the wire.
+#[derive(Debug, Serialize, Deserialize)]
+struct Envelope {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    payload: Option<serde_json::Value>,
+}
+
+/// One configuration variable, mirroring `protocol.CVEntry`.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct CvEntry {
+    pub cv: u16,
+    pub value: u8,
+}
+
+/// `protocol.AckPayload` (only the fields the wizard reads back).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Ack {
+    #[serde(default)]
+    pub ok: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cvs: Option<Vec<CvEntry>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub loco_address: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub long_address: Option<bool>,
+}
+
+/// One row of `GET /api/v1/command-stations/catalogue`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CommandStation {
+    pub id: u64,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub kind: String,
+    #[serde(default)]
+    pub programming: bool,
+    #[serde(default)]
+    pub hide_in_throttle: bool,
+    #[serde(default)]
+    pub default_programming_track_output: String,
+}
+
+/// What `GET /api/v1/wizard/programming/status` reports.
+#[derive(Debug, Clone, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Status {
+    pub connected: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command_station_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command_station_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_programming_track_output: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
+    pub reconnects: u64,
+}
+
+type Pending = Arc<StdMutex<HashMap<String, oneshot::Sender<Ack>>>>;
+
+/// A live socket plus the tasks that keep it readable and warm.
+struct Session {
+    tx: mpsc::UnboundedSender<Message>,
+    pending: Pending,
+    alive: Arc<AtomicBool>,
+    command_station_id: u64,
+    tasks: Vec<JoinHandle<()>>,
+}
+
+impl Session {
+    fn is_alive(&self) -> bool {
+        self.alive.load(Ordering::Relaxed) && !self.tx.is_closed()
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        self.alive.store(false, Ordering::Relaxed);
+        for task in self.tasks.drain(..) {
+            task.abort();
+        }
+    }
+}
+
+/// Owns (at most) one dcc-bus socket for the whole daemon. The mutex on
+/// the session doubles as the serialization point for CV operations: the
+/// programming track handles exactly one request at a time.
+pub struct DccBusClient {
+    cfg: Arc<Config>,
+    http: reqwest::Client,
+    session: Mutex<Option<Session>>,
+    status: StdMutex<Status>,
+}
+
+impl DccBusClient {
+    pub fn new(cfg: Arc<Config>, http: reqwest::Client) -> Self {
+        Self {
+            cfg,
+            http,
+            session: Mutex::new(None),
+            status: StdMutex::new(Status::default()),
+        }
+    }
+
+    pub fn status(&self) -> Status {
+        self.status.lock().expect("status mutex").clone()
+    }
+
+    /// Sends one programming frame and waits for the matching `ack`.
+    /// Reconnects once if the cached socket turned out to be dead.
+    pub async fn request(
+        &self,
+        token: &str,
+        frame: &str,
+        payload: serde_json::Value,
+    ) -> Result<Ack, ApiError> {
+        let mut guard = self.session.lock().await;
+        if guard.as_ref().is_some_and(|s| !s.is_alive()) {
+            *guard = None;
+        }
+        if guard.is_none() {
+            *guard = Some(self.connect_with_backoff(token).await?);
+        }
+
+        match send_and_wait(guard.as_ref().expect("session"), frame, payload.clone()).await {
+            Ok(ack) => Ok(ack),
+            Err(err) if err.status == StatusCode::SERVICE_UNAVAILABLE => {
+                // The socket died between requests — one clean retry.
+                *guard = None;
+                *guard = Some(self.connect_with_backoff(token).await?);
+                send_and_wait(guard.as_ref().expect("session"), frame, payload).await
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    /// Picks the programming-capable command station with the lowest id.
+    pub async fn pick_station(&self, token: &str) -> Result<CommandStation, ApiError> {
+        let url = format!(
+            "{}/api/v1/command-stations/catalogue",
+            self.cfg.bigfred_api_base()
+        );
+        let res = self
+            .http
+            .get(&url)
+            .header("authorization", format!("Bearer {token}"))
+            .send()
+            .await
+            .map_err(|err| {
+                ApiError::unavailable("bigfred_unreachable").with_detail(err.to_string())
+            })?;
+        let status = res.status();
+        let bytes = res.bytes().await.unwrap_or_default();
+        if status.as_u16() == 401 || status.as_u16() == 403 {
+            return Err(ApiError::unauthorized());
+        }
+        if !status.is_success() {
+            return Err(ApiError::unavailable("catalogue_unavailable")
+                .with_detail(String::from_utf8_lossy(&bytes).to_string()));
+        }
+        let mut stations: Vec<CommandStation> = serde_json::from_slice(&bytes).map_err(|err| {
+            ApiError::internal("catalogue_bad_response").with_detail(err.to_string())
+        })?;
+        stations.sort_by_key(|s| s.id);
+        stations
+            .into_iter()
+            .find(|s| s.programming)
+            .ok_or_else(|| ApiError::unavailable("no_programming_station"))
+    }
+
+    async fn connect_with_backoff(&self, token: &str) -> Result<Session, ApiError> {
+        let mut last: Option<ApiError> = None;
+        for attempt in 0..CONNECT_ATTEMPTS {
+            if attempt > 0 {
+                tokio::time::sleep(backoff_delay(attempt)).await;
+            }
+            match self.connect(token).await {
+                Ok(session) => {
+                    let mut status = self.status.lock().expect("status mutex");
+                    status.connected = true;
+                    status.last_error = None;
+                    if attempt > 0 {
+                        status.reconnects += 1;
+                    }
+                    return Ok(session);
+                }
+                Err(err) => {
+                    tracing::warn!(attempt, error = %err.code, "dcc-bus connect failed");
+                    let mut status = self.status.lock().expect("status mutex");
+                    status.connected = false;
+                    status.last_error = Some(err.code.clone());
+                    last = Some(err);
+                }
+            }
+        }
+        Err(last.unwrap_or_else(|| ApiError::unavailable("dcc_bus_unavailable")))
+    }
+
+    async fn connect(&self, token: &str) -> Result<Session, ApiError> {
+        let station = self.pick_station(token).await?;
+        {
+            let mut status = self.status.lock().expect("status mutex");
+            status.command_station_id = Some(station.id);
+            status.command_station_name = Some(station.name.clone());
+            status.default_programming_track_output =
+                Some(station.default_programming_track_output.clone());
+        }
+
+        let url = format!(
+            "{}/api/v1/dcc-bus/{}/ws?token={}",
+            self.cfg.bigfred_ws_base(),
+            station.id,
+            urlencode(token)
+        );
+        let (stream, _) = tokio_tungstenite::connect_async(&url)
+            .await
+            .map_err(|err| {
+                ApiError::unavailable("dcc_bus_unavailable").with_detail(err.to_string())
+            })?;
+
+        let (mut sink, mut source) = stream.split();
+        let (tx, mut rx) = mpsc::unbounded_channel::<Message>();
+        let pending: Pending = Arc::new(StdMutex::new(HashMap::new()));
+        let alive = Arc::new(AtomicBool::new(true));
+
+        let writer = tokio::spawn(async move {
+            while let Some(msg) = rx.recv().await {
+                if sink.send(msg).await.is_err() {
+                    break;
+                }
+            }
+            let _ = sink.close().await;
+        });
+
+        let reader_pending = Arc::clone(&pending);
+        let reader_alive = Arc::clone(&alive);
+        let reader = tokio::spawn(async move {
+            while let Some(Ok(msg)) = source.next().await {
+                let text = match msg {
+                    Message::Text(text) => text,
+                    Message::Binary(bin) => match String::from_utf8(bin) {
+                        Ok(text) => text,
+                        Err(_) => continue,
+                    },
+                    Message::Close(_) => break,
+                    _ => continue,
+                };
+                let Ok(env) = serde_json::from_str::<Envelope>(&text) else {
+                    continue;
+                };
+                if env.kind != "ack" {
+                    continue;
+                }
+                let Some(id) = env.id else { continue };
+                let waiter = reader_pending.lock().expect("pending mutex").remove(&id);
+                if let Some(waiter) = waiter {
+                    let ack = env
+                        .payload
+                        .and_then(|p| serde_json::from_value::<Ack>(p).ok())
+                        .unwrap_or_default();
+                    let _ = waiter.send(ack);
+                }
+            }
+            reader_alive.store(false, Ordering::Relaxed);
+            reader_pending.lock().expect("pending mutex").clear();
+        });
+
+        let ping_tx = tx.clone();
+        let pinger = tokio::spawn(async move {
+            let mut ticker = tokio::time::interval(PING_INTERVAL);
+            loop {
+                ticker.tick().await;
+                let frame = serde_json::to_string(&Envelope {
+                    kind: "ping".to_string(),
+                    id: None,
+                    payload: Some(serde_json::json!({})),
+                })
+                .expect("serialize ping");
+                if ping_tx.send(Message::Text(frame)).is_err() {
+                    break;
+                }
+            }
+        });
+
+        tracing::info!(
+            command_station = station.id,
+            name = %station.name,
+            "dcc-bus connected"
+        );
+        Ok(Session {
+            tx,
+            pending,
+            alive,
+            command_station_id: station.id,
+            tasks: vec![writer, reader, pinger],
+        })
+    }
+}
+
+async fn send_and_wait(
+    session: &Session,
+    frame: &str,
+    payload: serde_json::Value,
+) -> Result<Ack, ApiError> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let (tx, rx) = oneshot::channel();
+    session
+        .pending
+        .lock()
+        .expect("pending mutex")
+        .insert(id.clone(), tx);
+
+    let envelope = serde_json::to_string(&Envelope {
+        kind: frame.to_string(),
+        id: Some(id.clone()),
+        payload: Some(payload),
+    })
+    .map_err(|err| ApiError::internal("frame_encode_failed").with_detail(err.to_string()))?;
+
+    if session.tx.send(Message::Text(envelope)).is_err() {
+        session.pending.lock().expect("pending mutex").remove(&id);
+        return Err(ApiError::unavailable("dcc_bus_unavailable"));
+    }
+
+    match tokio::time::timeout(ACK_TIMEOUT, rx).await {
+        Ok(Ok(ack)) if ack.ok => Ok(ack),
+        Ok(Ok(ack)) => Err(ApiError::new(
+            StatusCode::BAD_GATEWAY,
+            ack.error
+                .unwrap_or_else(|| "programming_failed".to_string()),
+        )
+        .with_detail(format!("command station {}", session.command_station_id))),
+        Ok(Err(_)) => Err(ApiError::unavailable("dcc_bus_unavailable")),
+        Err(_) => {
+            session.pending.lock().expect("pending mutex").remove(&id);
+            Err(ApiError::new(
+                StatusCode::GATEWAY_TIMEOUT,
+                "programming_timeout",
+            ))
+        }
+    }
+}
+
+/// Exponential backoff with full jitter, capped at [`BACKOFF_MAX_MS`].
+fn backoff_delay(attempt: u32) -> Duration {
+    let exp = BACKOFF_BASE_MS.saturating_mul(1u64 << attempt.min(6));
+    let capped = exp.min(BACKOFF_MAX_MS);
+    let jitter = rand::thread_rng().gen_range(0..=capped / 2);
+    Duration::from_millis(capped / 2 + jitter)
+}
+
+/// Percent-encodes the JWT for the `?token=` query parameter. JWTs are
+/// base64url plus dots, so only the padding-free alphabet matters here.
+fn urlencode(value: &str) -> String {
+    let mut out = String::with_capacity(value.len());
+    for byte in value.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(byte as char)
+            }
+            _ => out.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backoff_grows_and_is_capped() {
+        for attempt in 0..8 {
+            let delay = backoff_delay(attempt).as_millis() as u64;
+            assert!(delay <= BACKOFF_MAX_MS, "attempt {attempt} → {delay}ms");
+        }
+        assert!(backoff_delay(0).as_millis() >= (BACKOFF_BASE_MS / 2) as u128);
+    }
+
+    #[test]
+    fn urlencode_keeps_jwt_alphabet() {
+        assert_eq!(urlencode("abcABC123-_.~"), "abcABC123-_.~");
+        assert_eq!(urlencode("a+b/c=d"), "a%2Bb%2Fc%3Dd");
+    }
+
+    #[test]
+    fn ack_parses_cv_results() {
+        let ack: Ack = serde_json::from_str(
+            r#"{"ok":true,"cvs":[{"cv":1,"value":3}],"locoAddress":3,"longAddress":false}"#,
+        )
+        .unwrap();
+        assert!(ack.ok);
+        assert_eq!(ack.cvs.unwrap()[0].cv, 1);
+        assert_eq!(ack.loco_address, Some(3));
+    }
+}

@@ -1,0 +1,132 @@
+{
+  "app": {
+    "title": "BigFred — Kreator",
+    "subtitle": "Kiosk imprezowy",
+    "language": "Język",
+    "logout": "Wyloguj",
+    "back": "Wstecz",
+    "next": "Dalej",
+    "finish": "Zakończ",
+    "cancel": "Anuluj",
+    "retry": "Spróbuj ponownie",
+    "close": "Zamknij",
+    "loading": "Wczytywanie…",
+    "done": "Gotowe",
+    "home": "Menu główne",
+    "disabled": "Kreator jest wyłączony",
+    "disabledHint": "Ustaw \"enabled\": true w /data/etc/bigfred-wizard.json i zrestartuj usługę bigfred-wizard.",
+    "idleLogout": "Wylogowano po okresie bezczynności."
+  },
+  "login": {
+    "heading": "Witamy na imprezie",
+    "lead": "Zaloguj się kontem organizatora, aby uruchomić kreator dla uczestników.",
+    "button": "Zaloguj jako organizator",
+    "callback": "Kończenie logowania…",
+    "failed": "Logowanie nie powiodło się",
+    "stateMismatch": "Nieprawidłowy stan sesji logowania — spróbuj jeszcze raz.",
+    "loggedInAs": "Zalogowano jako {{login}}"
+  },
+  "home": {
+    "heading": "Co chcesz zrobić?",
+    "tiles": {
+      "account": "Utwórz nowe konto",
+      "accountHint": "Login, PIN i pula adresów DCC",
+      "phone": "Chcę jeździć aplikacją na telefon",
+      "phoneHint": "WiThrottle (Engine Driver, WiThrottle)",
+      "wlanmaus": "Roco Wlanmaus",
+      "wlanmausHint": "Sterownik Z21",
+      "longfred": "LongFred",
+      "longfredHint": "Manipulator WiThrottle",
+      "loco": "Skonfiguruj mi lokomotywę",
+      "locoHint": "Adres DCC i wpis w taborze"
+    }
+  },
+  "account": {
+    "heading": "Nowe konto uczestnika",
+    "steps": {
+      "login": "Login",
+      "pin": "PIN",
+      "summary": "Podsumowanie"
+    },
+    "loginLabel": "Login uczestnika",
+    "loginHint": "Małe litery, bez spacji, np. tomek",
+    "pinLabel": "PIN (4–6 cyfr)",
+    "pinRepeat": "Powtórz PIN",
+    "pinMismatch": "PIN-y nie są takie same.",
+    "pinTooShort": "PIN musi mieć od 4 do 6 cyfr.",
+    "loginTooShort": "Login musi mieć co najmniej 3 znaki.",
+    "summaryLead": "Utworzymy konto z pulą {{count}} adresów DCC.",
+    "create": "Utwórz konto",
+    "created": "Konto {{login}} zostało utworzone.",
+    "pool": "Przydzielone adresy DCC",
+    "another": "Utwórz kolejne konto"
+  },
+  "pair": {
+    "heading": {
+      "phone": "Telefon jako sterownik (WiThrottle)",
+      "wlanmaus": "Roco Wlanmaus (Z21)",
+      "longfred": "LongFred (WiThrottle)"
+    },
+    "steps": {
+      "user": "Uczestnik",
+      "station": "Centrala",
+      "pairing": "Parowanie"
+    },
+    "pickUser": "Dla kogo parujemy sterownik?",
+    "searchUser": "Szukaj uczestnika",
+    "noUsers": "Brak kont — najpierw utwórz konto uczestnika.",
+    "allVehicles": "Udostępnij wszystkie pojazdy uczestnika",
+    "start": "Rozpocznij parowanie",
+    "waiting": "Czekam na sterownik…",
+    "codeLabel": "Kod parowania",
+    "cvLabel": "Ustaw CV3 i CV4",
+    "paired": "Sterownik sparowany.",
+    "expired": "Kod wygasł — rozpocznij parowanie ponownie.",
+    "instructionsPhone": "W aplikacji WiThrottle wybierz serwer BigFred, następnie wpisz kod jako nazwę urządzenia albo wybierz lokomotywę \"Pair with BigFred\" (adres 3) i naciśnij F0–F9 dla kolejnych cyfr.",
+    "instructionsWlanmaus": "Na Wlanmausie wejdź w tryb programowania i ustaw CV3 oraz CV4 na podane wartości, albo wpisz kod klawiszami funkcyjnymi.",
+    "instructionsLongfred": "Na LongFredzie wybierz sieć BigFred i wprowadź kod parowania przyciskami funkcyjnymi."
+  },
+  "loco": {
+    "heading": "Konfiguracja lokomotywy",
+    "steps": {
+      "user": "Właściciel",
+      "read": "Odczyt",
+      "address": "Nowy adres",
+      "vehicle": "Tabor"
+    },
+    "putOnTrack": "Postaw lokomotywę na torze programującym.",
+    "readCurrent": "Odczytaj obecny adres",
+    "currentAddress": "Obecny adres: {{address}}",
+    "readFailed": "Nie udało się odczytać adresu.",
+    "skipRead": "Pomiń odczyt",
+    "newAddress": "Nowy adres DCC",
+    "poolHint": "Pula uczestnika: {{ranges}}",
+    "outsidePool": "Adres spoza puli uczestnika — sterowanie może zostać odrzucone.",
+    "writeAddress": "Zapisz adres w dekoderze",
+    "written": "Adres {{address}} zapisany.",
+    "vehicleName": "Nazwa pojazdu",
+    "vehicleKind": "Rodzaj",
+    "kinds": {
+      "loco": "Lokomotywa",
+      "emu": "EZT",
+      "driving_wagon": "Wagon sterowniczy",
+      "trolley": "Drezyna",
+      "wagon": "Wagon"
+    },
+    "createVehicle": "Dodaj do taboru",
+    "created": "Pojazd {{name}} dodany do taboru uczestnika {{login}}.",
+    "programmingOffline": "Programowanie niedostępne: brak połączenia z dcc-bus."
+  },
+  "errors": {
+    "generic": "Coś poszło nie tak.",
+    "unauthorized": "Sesja wygasła — zaloguj się ponownie.",
+    "dcc_bus_unavailable": "Brak połączenia z centralą (dcc-bus). Otwórz makietę w BigFredzie i spróbuj ponownie.",
+    "no_programming_station": "Żadna centrala nie ma włączonego programowania CV.",
+    "programming_timeout": "Centrala nie odpowiedziała na czas.",
+    "wizard_disabled": "Kreator jest wyłączony w konfiguracji.",
+    "login_taken": "Ten login jest już zajęty.",
+    "dcc_pool_exhausted": "Brak wolnych adresów DCC w puli.",
+    "invalid_address": "Nieprawidłowy adres DCC.",
+    "bigfred_unreachable": "Serwer BigFred jest niedostępny."
+  }
+}
