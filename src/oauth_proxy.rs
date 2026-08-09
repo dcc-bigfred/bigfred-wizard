@@ -54,6 +54,10 @@ pub async fn token(
         return Err(ApiError::bad_request("invalid_redirect_uri"));
     }
 
+    // Lazy create (or re-harden perms) in case startup could not write the
+    // drop-in yet — BigFred hot-reloads `$DATA_DIR/etc/bigfred/oauth-clients`.
+    ensure_client::ensure(&state.cfg)
+        .map_err(|err| ApiError::internal("oauth_client_ensure_failed").with_detail(err.to_string()))?;
     let secret = ensure_client::load_secret(&state.cfg)
         .map_err(|err| ApiError::internal("oauth_client_unreadable").with_detail(err.to_string()))?
         .ok_or_else(|| ApiError::internal("oauth_client_missing"))?;

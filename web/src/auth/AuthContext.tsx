@@ -19,7 +19,7 @@ interface AuthValue {
   token: string | null;
   me: Me | null;
   redirectUri: string;
-  startSso: () => void;
+  startSso: (layoutId: number) => void;
   adoptToken: (token: string) => Promise<void>;
   logout: (reason?: "idle" | "manual") => void;
   idleReason: "idle" | null;
@@ -137,22 +137,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const redirectUri = useMemo(() => pickRedirectUri(config), [config]);
 
-  const startSso = useCallback(() => {
-    if (!config) {
-      return;
-    }
-    const state = randomState();
-    sessionStorage.setItem(STATE_KEY, state);
-    const params = new URLSearchParams({
-      client_id: config.ssoClientId,
-      redirect_uri: redirectUri,
-      state,
-      response_type: "code",
-    });
-    window.location.assign(
-      `${config.bigfredPublicUrl}/api/v1/auth/oauth/authorize?${params.toString()}`,
-    );
-  }, [config, redirectUri]);
+  const startSso = useCallback(
+    (layoutId: number) => {
+      if (!config || !layoutId) {
+        return;
+      }
+      const state = randomState();
+      sessionStorage.setItem(STATE_KEY, state);
+      const params = new URLSearchParams({
+        client_id: config.ssoClientId,
+        redirect_uri: redirectUri,
+        state,
+        response_type: "code",
+        layout_id: String(layoutId),
+      });
+      window.location.assign(
+        `${config.bigfredPublicUrl}/api/v1/auth/oauth/authorize?${params.toString()}`,
+      );
+    },
+    [config, redirectUri],
+  );
 
   const adoptToken = useCallback(async (accessToken: string) => {
     setToken(accessToken);

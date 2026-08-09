@@ -13,6 +13,17 @@ export CARGO_TARGET_DIR
 
 CONFIG ?= $(CURDIR)/dev-config.json
 
+# Cross-link aarch64 musl: prefer Buildroot host gcc (sibling bigfred-os tree),
+# else aarch64-linux-musl-gcc on PATH. Host musl-gcc/ld will fail with
+# "file in wrong format" on aarch64 objects.
+BIGFRED_OS_ROOT ?= $(abspath $(CURDIR)/../bigfred-os)
+BR_HOST_GCC := $(BIGFRED_OS_ROOT)/os/output/host/bin/aarch64-buildroot-linux-musl-gcc
+ifeq ($(wildcard $(BR_HOST_GCC)),)
+  LINKER ?= aarch64-linux-musl-gcc
+else
+  LINKER ?= $(BR_HOST_GCC)
+endif
+
 .PHONY: all build web-build release-musl host test test-release-assertions \
 	fmt clippy clean dist dev-backend dev-web
 
@@ -39,7 +50,14 @@ build:
 		echo "error: cargo not found" >&2; \
 		exit 127; \
 	}
-	@echo "==> bigfred-wizard ($(TARGET))"
+	@command -v "$(LINKER)" >/dev/null 2>&1 || { \
+		echo "error: aarch64 musl linker not found: $(LINKER)" >&2; \
+		echo "       build bigfred-os host tools, or install aarch64-linux-musl-gcc" >&2; \
+		exit 127; \
+	}
+	@echo "==> bigfred-wizard ($(TARGET)) linker=$(LINKER)"
+	CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER="$(LINKER)" \
+	CC_aarch64_unknown_linux_musl="$(LINKER)" \
 	RUSTFLAGS='-C target-feature=+crt-static' \
 		$(CARGO) build --release --target $(TARGET)
 	@mkdir -p dist
@@ -63,12 +81,15 @@ fmt:
 clippy:
 	$(CARGO) clippy --all-targets -- -D warnings
 
-dev-backend:
+dev-backend-isolated:
 	BIGFRED_DATA_DIR=$(CURDIR)/.dev-data \
 		$(CARGO) run -- --config "$(CONFIG)"
 
+dev-backend:
+	$(CARGO) run -- --config "$(CONFIG)"
+
 dev-web:
-	cd "$(WEB_DIR)" && $(NPM) run dev
+	cd "$(WEB_DIR)" && HOST=0.0.0.0 $(NPM) run dev
 
 clean:
 	$(CARGO) clean

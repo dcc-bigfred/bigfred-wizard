@@ -13,14 +13,22 @@
     "loading": "Loading…",
     "done": "Done",
     "home": "Main menu",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit fullscreen",
     "disabled": "The wizard is disabled",
-    "disabledHint": "Set \"enabled\": true in /data/etc/bigfred-wizard.json and restart the bigfred-wizard service.",
+    "disabledHint": "Set \"enabled\": true in /data/etc/bigfred/wizard/bigfred-wizard.json and restart the bigfred-wizard service.",
     "idleLogout": "Logged out after being idle."
   },
   "login": {
     "heading": "Welcome to the event",
     "lead": "Sign in with the organizer account to run the wizard for participants.",
     "button": "Sign in as organizer",
+    "layout": "Layout",
+    "layoutHint": "Choose the layout the wizard will run on.",
+    "systemLayout": "Default (workshop)",
+    "layoutsError": "Could not load the layout list.",
+    "enterFullscreen": "Enter fullscreen",
+    "exitFullscreen": "Exit fullscreen",
     "callback": "Finishing sign-in…",
     "failed": "Sign-in failed",
     "stateMismatch": "Sign-in state mismatch — please try again.",
@@ -31,14 +39,120 @@
     "tiles": {
       "account": "Create a new account",
       "accountHint": "Login, PIN and a DCC address pool",
-      "phone": "I want to drive with my phone",
-      "phoneHint": "WiThrottle (Engine Driver, WiThrottle)",
-      "wlanmaus": "Roco Wlanmaus",
-      "wlanmausHint": "Z21 handset",
-      "longfred": "LongFred",
-      "longfredHint": "WiThrottle handset",
+      "drive": "I want to drive — help me set up a handset or phone",
+      "driveHint": "Phone, WlanMaus, LongFred, WiFred…",
       "loco": "Set up my locomotive",
       "locoHint": "DCC address and roster entry"
+    }
+  },
+  "drive": {
+    "heading": "Set up driving",
+    "pickDevice": "What will you drive with?",
+    "pickDeviceHint": "Tap the large card that matches your device.",
+    "pickStation": "Which command station?",
+    "startPairing": "Start pairing",
+    "alreadyPairedTitle": "A handset is already paired",
+    "alreadyPairedAsk": "It looks like you already have a paired handset. Do you want to unpair the previous one and pair a new one?",
+    "keepExisting": "No, keep the current one",
+    "replacePairing": "Yes, unpair and pair a new one",
+    "waiting": "Waiting for the device to pair…",
+    "pairingRetryHint": "If pairing did not work — no panic, try entering the code again.",
+    "paired": "Done — the device is paired.",
+    "expired": "Time ran out. Let's start pairing again.",
+    "pickLoco": "Which locomotive do you want to drive?",
+    "pickLocoHint": "The handset can control all of your locomotives. Pick the one we will show in the next steps.",
+    "noLocos": "This participant has no locomotives in the roster yet.",
+    "locoAddress": "DCC address: {{address}}",
+    "locoNoAddress": "No DCC address",
+    "howToEnterTitle": "How to select locomotive “{{name}}” on the device",
+    "stepper": {
+      "device": "Device",
+      "qr": "QR code",
+      "drive": "Drive",
+      "user": "Participant",
+      "pairing": "Pairing",
+      "loco": "Locomotive",
+      "howto": "How-to"
+    },
+    "devices": {
+      "android": {
+        "title": "Android phone or tablet",
+        "hint": "Phones with the Google Play store, e.g. LG, Motorola, Samsung, Xiaomi, Sony, Asus, Nokia, Honor, Blackberry"
+      },
+      "otherPhone": {
+        "title": "Another phone",
+        "hint": "e.g. Apple iPhone"
+      },
+      "wlanmaus": {
+        "title": "Roco WlanMaus",
+        "hint": "Roco / Fleischmann Z21 Wi‑Fi handset"
+      },
+      "railbox": {
+        "title": "Railbox Railroad Control app",
+        "hint": "Drive from a phone with Railbox"
+      },
+      "longfred": {
+        "title": "LongFred",
+        "hint": "Network handset"
+      },
+      "wifred": {
+        "title": "WiFred",
+        "hint": "Network handset"
+      }
+    },
+    "phone": {
+      "scanPlayTitle": "Scan the code and install BigFred",
+      "scanPlayLead": "Open the camera or a QR scanner on the phone and point it at this code — it opens Google Play.",
+      "scanWebTitle": "Scan the code and open BigFred",
+      "scanWebLead": "Open the camera or a QR scanner on the phone and point it at this code — it opens BigFred in the browser.",
+      "qrAlt": "QR code",
+      "androidUrlMissing": "No Android app URL in the config (androidAppUrl). Ask the operator to fill it in /data/etc/bigfred/wizard/bigfred-wizard.json.",
+      "driveTitle": "How to drive in BigFred",
+      "driveSteps": {
+        "1": "Open the BigFred app or website on the phone.",
+        "2": "Sign in with the participant login and PIN (the same ones from account setup).",
+        "3": "On the home screen open the throttle / locomotives.",
+        "4": "Pick your locomotive from the list and drive with the on-screen controls."
+      }
+    },
+    "steps": {
+      "powerOnWlanmaus": "Turn on the WlanMaus with the OK (Light / OK) button.",
+      "openAnyLoco": "Open any locomotive (any address) with the arrow keys.",
+      "powerOnHandset": "Turn the device on.",
+      "openPairingLoco": "On the device, open the pairing locomotive.",
+      "openApp": "Open the {{app}} app.",
+      "connectBigFred": "Connect to the BigFred server on the club Wi‑Fi.",
+      "typeDeviceName": "Set the device name to: <strong>{{code}}</strong>",
+      "orPairingLoco": "Or select the “Pair with BigFred” locomotive and press these keys:",
+      "pressWlanmausKey": "Press key <strong>{{key}}</strong> (same as {{f}}).",
+      "pressF": "Press key <strong>{{f}}</strong>."
+    },
+    "howToEnter": {
+      "wlanmaus": {
+        "1": "On the WlanMaus go to locomotive selection (library or address mode).",
+        "2": "Enter or select address {{address}} ({{name}}).",
+        "3": "Confirm with OK — you can drive."
+      },
+      "railbox": {
+        "1": "In Railbox open the locomotive list.",
+        "2": "Add or select the locomotive at address {{address}} ({{name}}).",
+        "3": "Start driving that locomotive."
+      },
+      "longfred": {
+        "1": "On LongFred open locomotive selection.",
+        "2": "Set address {{address}} ({{name}}).",
+        "3": "Confirm and drive."
+      },
+      "wifred": {
+        "1": "On WiFred open locomotive selection.",
+        "2": "Set address {{address}} ({{name}}).",
+        "3": "Confirm and drive."
+      },
+      "withrottle": {
+        "1": "In the app open the BigFred locomotive list.",
+        "2": "Select the locomotive at address {{address}} ({{name}}).",
+        "3": "Open the throttle and drive."
+      }
     }
   },
   "account": {
@@ -46,12 +160,16 @@
     "steps": {
       "login": "Login",
       "pin": "PIN",
+      "pinRepeat": "Repeat PIN",
       "summary": "Summary"
     },
     "loginLabel": "Participant login",
     "loginHint": "Lowercase, no spaces, e.g. tom",
     "pinLabel": "PIN (4–6 digits)",
     "pinRepeat": "Repeat PIN",
+    "rememberCredentials": "Remember your login and PIN — you will need them to sign in on the phone app.",
+    "showPin": "Show PIN",
+    "hidePin": "Hide PIN",
     "pinMismatch": "The PINs do not match.",
     "pinTooShort": "The PIN must be 4 to 6 digits.",
     "loginTooShort": "The login needs at least 3 characters.",
@@ -62,71 +180,57 @@
     "another": "Create another account"
   },
   "pair": {
-    "heading": {
-      "phone": "Phone as a throttle (WiThrottle)",
-      "wlanmaus": "Roco Wlanmaus (Z21)",
-      "longfred": "LongFred (WiThrottle)"
-    },
-    "steps": {
-      "user": "Participant",
-      "station": "Command station",
-      "pairing": "Pairing"
-    },
-    "pickUser": "Who is this handset for?",
+    "pickUser": "Who is this for?",
     "searchUser": "Search participants",
-    "noUsers": "No accounts yet — create a participant account first.",
-    "allVehicles": "Share all of the participant's vehicles",
-    "start": "Start pairing",
-    "waiting": "Waiting for the handset…",
-    "codeLabel": "Pairing code",
-    "cvLabel": "Set CV3 and CV4",
-    "paired": "Handset paired.",
-    "expired": "The code expired — start pairing again.",
-    "instructionsPhone": "In the WiThrottle app pick the BigFred server, then enter the code as the device name, or select the \"Pair with BigFred\" locomotive (address 3) and press F0–F9 for each digit.",
-    "instructionsWlanmaus": "On the Wlanmaus enter programming mode and set CV3 and CV4 to the values shown, or type the code with the function keys.",
-    "instructionsLongfred": "On LongFred join the BigFred network and enter the pairing code with the function buttons."
+    "noUsers": "No accounts yet — create a participant account first."
   },
   "loco": {
     "heading": "Locomotive setup",
     "steps": {
       "user": "Owner",
-      "read": "Read",
-      "address": "New address",
-      "vehicle": "Roster"
-    },
-    "putOnTrack": "Put the locomotive on the programming track.",
-    "readCurrent": "Read the current address",
-    "currentAddress": "Current address: {{address}}",
-    "readFailed": "Could not read the address.",
-    "skipRead": "Skip the read",
-    "newAddress": "New DCC address",
-    "poolHint": "Participant pool: {{ranges}}",
-    "outsidePool": "Address outside the participant's pool — driving may be rejected.",
-    "writeAddress": "Write the address to the decoder",
-    "written": "Address {{address}} written.",
-    "vehicleName": "Vehicle name",
-    "vehicleKind": "Kind",
-    "kinds": {
       "loco": "Locomotive",
-      "emu": "EMU",
-      "driving_wagon": "Driving wagon",
-      "trolley": "Trolley",
-      "wagon": "Wagon"
+      "address": "DCC address",
+      "program": "Programming"
     },
-    "createVehicle": "Add to the roster",
-    "created": "Vehicle {{name}} added to {{login}}'s roster.",
+    "noDccPool": "Sorry — you have no DCC address pool. Please ask the layout administrator.",
+    "pickLoco": "Which locomotive are we setting up?",
+    "pickLocoHint": "Pick from the list, or add a new one if it is missing.",
+    "addNewLoco": "I did not find my locomotive on this list — I need to add it",
+    "detailsTitle": "New vehicle details",
+    "vehicleName": "Name",
+    "epoch": "Epoch (optional)",
+    "epochUnset": "No epoch",
+    "carrier": "Carrier (optional)",
+    "assignment": "Assignment (optional)",
+    "revisionDate": "Revision date (optional)",
+    "addressExplain": "Everyone has a list of DCC addresses they can assign to their vehicles — here are yours. Your new vehicle will get DCC number <strong>{{address}}</strong>",
+    "dccAddress": "DCC number",
+    "functionListHeading": "Vehicle function list",
+    "functionListDescribe": "You can optionally copy a function list onto your vehicle from another vehicle, so the BigFred phone app or a LongFred handset shows function names and icons. This step is optional — your model may not be on the list; if so, choose “Basic”.",
+    "functionList": "Vehicle function list",
+    "functionListChangeOptional": "(Optional) Change vehicle function list",
+    "poolHint": "Your pool: {{ranges}}",
+    "outsidePool": "The address must be inside your DCC pool.",
+    "locoAddress": "DCC address: {{address}}",
+    "locoNoAddress": "No DCC address",
+    "putOnTrackProgram": "Put the locomotive/vehicle on the programming track and tap Program.",
+    "program": "Program",
+    "programSuccess": "Address {{address}} written to the decoder. Vehicle “{{name}}” is ready.",
+    "testF2": "Test: Run F2",
+    "testF2Hint": "F2 runs on the powered main track (ops). Move the loco off the programming track onto powered rails, then tap the button — F2 stays on for 1 second.",
     "programmingOffline": "Programming unavailable: no dcc-bus connection."
   },
   "errors": {
     "generic": "Something went wrong.",
     "unauthorized": "Session expired — please sign in again.",
     "dcc_bus_unavailable": "No connection to the command station (dcc-bus). Open the layout in BigFred and retry.",
-    "no_programming_station": "No command station has CV programming enabled.",
+    "no_programming_station": "No command station has a handset server enabled (Z21 / WiThrottle).",
     "programming_timeout": "The command station did not answer in time.",
     "wizard_disabled": "The wizard is disabled in the configuration.",
     "login_taken": "That login is already taken.",
     "dcc_pool_exhausted": "No free DCC addresses left in the pool.",
     "invalid_address": "Invalid DCC address.",
-    "bigfred_unreachable": "The BigFred server is unreachable."
+    "bigfred_unreachable": "The BigFred server is unreachable.",
+    "qr_url_unset": "No URL configured for this QR code."
   }
 }

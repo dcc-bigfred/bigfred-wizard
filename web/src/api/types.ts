@@ -5,6 +5,7 @@
 export interface WizardConfig {
   enabled: boolean;
   bigfredPublicUrl: string;
+  androidAppUrl: string;
   dccPerUser: number;
   idleTimeoutSecs: number;
   ssoClientId: string;
@@ -27,6 +28,13 @@ export interface Me {
   effectiveRole: Role;
   layoutId: number;
   layoutName: string;
+}
+
+/** Public row from GET /api/v1/layouts/login (pre-SSO makieta picker). */
+export interface LoginLayout {
+  id: number;
+  name: string;
+  isSystem: boolean;
 }
 
 export interface DccPoolRange {
@@ -54,11 +62,98 @@ export interface CommandStation {
   defaultProgrammingTrackOutput: string;
 }
 
+export type VehicleEpoch =
+  | ""
+  | "I"
+  | "Ia"
+  | "Ib"
+  | "II"
+  | "IIa"
+  | "IIb"
+  | "IIc"
+  | "III"
+  | "IIIa"
+  | "IIIb"
+  | "IIIc"
+  | "IV"
+  | "IVa"
+  | "IVb"
+  | "IVc"
+  | "V"
+  | "Va"
+  | "Vb"
+  | "Vc"
+  | "VI"
+  | "VIa"
+  | "VIb";
+
+/** Polish modelling epochs (I…VIb), matching BigFred domain.VehicleEpoch. */
+export const VEHICLE_EPOCHS: Exclude<VehicleEpoch, "">[] = [
+  "I",
+  "Ia",
+  "Ib",
+  "II",
+  "IIa",
+  "IIb",
+  "IIc",
+  "III",
+  "IIIa",
+  "IIIb",
+  "IIIc",
+  "IV",
+  "IVa",
+  "IVb",
+  "IVc",
+  "V",
+  "Va",
+  "Vb",
+  "Vc",
+  "VI",
+  "VIa",
+  "VIb",
+];
+
 export interface Vehicle {
   id: string;
   name: string;
   kind: string;
+  number?: string;
   dccAddress: number | null;
+  ownerId?: number;
+  ownerLogin?: string;
+  carrier?: string;
+  assignment?: string;
+  revisionDate?: string | null;
+  epoch?: string;
+}
+
+export interface VehicleCreateInput {
+  name: string;
+  kind: string;
+  number?: string;
+  dccAddress: number;
+  carrier?: string;
+  assignment?: string;
+  epoch?: string;
+  revisionDate?: string | null;
+}
+
+export interface VehicleUpdateInput {
+  dccAddress: number;
+  /** Echoed catalogue metadata — BigFred Update always applies these fields. */
+  carrier?: string;
+  assignment?: string;
+  epoch?: string;
+  revisionDate?: string | null;
+  name?: string;
+  kind?: string;
+  number?: string;
+}
+
+export interface VehicleTemplate {
+  id: number;
+  name: string;
+  description?: string;
 }
 
 export type RemoteProtocol = "z21" | "withrottle";
@@ -76,6 +171,7 @@ export interface RemotePairing {
 export interface RemoteStatus {
   protocol?: string;
   paired: boolean;
+  clientKey?: string;
   allowAllVehicles: boolean;
   pendingPairing?: unknown;
 }

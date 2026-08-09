@@ -2,8 +2,10 @@
 //! (`$DATA_DIR/etc/bigfred/oauth-clients/bigfred-wizard.json`). BigFred
 //! hot-reloads that directory, so a fresh hub needs no manual step.
 //!
-//! The generated `clientSecret` stays on disk (0600) and is read back by
-//! `oauth_proxy` — it is never sent to the browser.
+//! The generated `clientSecret` stays on disk (0640, group `bigfred`) and
+//! is read back by `oauth_proxy` — it is never sent to the browser.
+//! BigFred runs as user `bigfred`, so a root-only `0600` file would make
+//! the registry skip the drop-in and return `invalid_client`.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -11,7 +13,7 @@ use std::path::{Path, PathBuf};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{oauth_clients_dir, Config};
+use crate::config::{merge_builtin_redirect_uris, oauth_clients_dir, Config};
 
 /// One drop-in registration, mirroring `cmd.OAuthClient` on the Go side.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,25 +54,34 @@ pub fn client_path(cfg: &Config) -> PathBuf {
     oauth_clients_dir().join(format!("{}.json", cfg.sso_client_id))
 }
 
-/// Creates the drop-in when missing. An existing file is left untouched
-/// (an operator may have widened the redirect list by hand).
+/// Creates the drop-in when missing. An existing file keeps its secret, but
+/// builtin redirect URIs from the wizard config are always merged in.
+/// Directory and file modes are re-asserted so BigFred (`bigfred`) can read.
 pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
     let dir = oauth_clients_dir();
     std::fs::create_dir_all(&dir).map_err(|source| EnsureError::Io {
         path: dir.clone(),
         source,
     })?;
+    harden_dropin_dir(&dir);
+
     let path = client_path(cfg);
     if path.exists() {
+        sync_redirect_uris(&path, cfg)?;
+        harden_dropin_file(&path);
+        // chmod/chown alone may not wake BigFred's fsnotify watch; bump mtime.
+        touch_for_reload(&path);
         tracing::info!(path = %path.display(), "oauth client drop-in present");
         return Ok(path);
     }
 
+    let mut redirect_uris = cfg.redirect_uris.clone();
+    merge_builtin_redirect_uris(&mut redirect_uris);
     let file = OAuthClientFile {
         client_id: cfg.sso_client_id.clone(),
         client_secret: random_secret(),
         display_name: "BigFred Wizard".to_string(),
-        redirect_uris: cfg.redirect_uris.clone(),
+        redirect_uris,
         cors_enabled: false,
         cors_origins: Vec::new(),
         enabled: true,
@@ -79,8 +90,47 @@ pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
         &path,
         &serde_json::to_vec_pretty(&file).expect("serialize client"),
     )?;
+    harden_dropin_file(&path);
     tracing::info!(path = %path.display(), "seeded oauth client drop-in");
     Ok(path)
+}
+
+/// Merges config + builtin redirect URIs into an existing drop-in without
+/// rotating the client secret.
+fn sync_redirect_uris(path: &Path, cfg: &Config) -> Result<(), EnsureError> {
+    let raw = std::fs::read(path).map_err(|source| EnsureError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    let mut file: OAuthClientFile =
+        serde_json::from_slice(&raw).map_err(|source| EnsureError::Parse {
+            path: path.to_path_buf(),
+            source,
+        })?;
+
+    let before = file.redirect_uris.clone();
+    for uri in &cfg.redirect_uris {
+        let trimmed = uri.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !file.redirect_uris.iter().any(|u| u.trim() == trimmed) {
+            file.redirect_uris.push(trimmed.to_string());
+        }
+    }
+    merge_builtin_redirect_uris(&mut file.redirect_uris);
+    if file.redirect_uris == before {
+        return Ok(());
+    }
+
+    let mut data = serde_json::to_vec_pretty(&file).expect("serialize client");
+    data.push(b'\n');
+    std::fs::write(path, data).map_err(|source| EnsureError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    tracing::info!(path = %path.display(), "merged redirect URIs into oauth client drop-in");
+    Ok(())
 }
 
 /// Reads the client secret back for the token exchange.
@@ -112,13 +162,71 @@ fn write_private(path: &Path, data: &[u8]) -> Result<(), EnsureError> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        opts.mode(0o600);
+        // Temporary until harden_dropin_file sets 0640 + group bigfred.
+        opts.mode(0o640);
     }
     let mut f = opts.open(path).map_err(io)?;
     f.write_all(data).map_err(io)?;
     f.write_all(b"\n").map_err(io)?;
     f.sync_all().map_err(io)?;
     Ok(())
+}
+
+/// `0750 root:bigfred` so loco-server can traverse and list drop-ins.
+fn harden_dropin_dir(dir: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{chown, PermissionsExt};
+        let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o750));
+        if let Some(gid) = bigfred_gid() {
+            let _ = chown(dir, None, Some(gid));
+        }
+        if let Some(parent) = dir.parent() {
+            let _ = std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o750));
+            if let Some(gid) = bigfred_gid() {
+                let _ = chown(parent, None, Some(gid));
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = dir;
+    }
+}
+
+/// `0640 root:bigfred` — BigFred must read `clientSecret` at reload time.
+fn harden_dropin_file(path: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{chown, PermissionsExt};
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o640));
+        if let Some(gid) = bigfred_gid() {
+            let _ = chown(path, None, Some(gid));
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
+}
+
+fn bigfred_gid() -> Option<u32> {
+    let text = std::fs::read_to_string("/etc/group").ok()?;
+    for line in text.lines() {
+        let mut parts = line.split(':');
+        if parts.next()? != "bigfred" {
+            continue;
+        }
+        let _passwd = parts.next()?;
+        return parts.next()?.parse().ok();
+    }
+    None
+}
+
+fn touch_for_reload(path: &Path) {
+    if let Ok(f) = std::fs::OpenOptions::new().write(true).open(path) {
+        let _ = f.set_modified(std::time::SystemTime::now());
+    }
 }
 
 #[cfg(test)]
@@ -146,6 +254,12 @@ mod tests {
 
         assert_eq!(first, second);
         assert!(path.ends_with("bigfred-wizard.json"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o640);
+        }
         std::env::remove_var("BIGFRED_DATA_DIR");
         let _ = std::fs::remove_dir_all(&tmp);
     }

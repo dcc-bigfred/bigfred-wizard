@@ -10,9 +10,9 @@ import AppShell from "./components/AppShell";
 import CallbackPage from "./pages/CallbackPage";
 import CreateAccountPage from "./pages/CreateAccountPage";
 import ConfigureLocoPage from "./pages/ConfigureLocoPage";
+import DriveFlowPage from "./pages/DriveFlowPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import PairHandsetPage from "./pages/PairHandsetPage";
 
 function Protected({ children }: { children: ReactNode }) {
   const { ready, token, config } = useAuth();
@@ -63,29 +63,16 @@ function Router() {
         }
       />
       <Route
-        path="/flow/phone"
+        path="/flow/drive"
         element={
           <Protected>
-            <PairHandsetPage variant="phone" protocol="withrottle" />
+            <DriveFlowPage />
           </Protected>
         }
       />
-      <Route
-        path="/flow/wlanmaus"
-        element={
-          <Protected>
-            <PairHandsetPage variant="wlanmaus" protocol="z21" />
-          </Protected>
-        }
-      />
-      <Route
-        path="/flow/longfred"
-        element={
-          <Protected>
-            <PairHandsetPage variant="longfred" protocol="withrottle" />
-          </Protected>
-        }
-      />
+      <Route path="/flow/phone" element={<Navigate to="/flow/drive" replace />} />
+      <Route path="/flow/wlanmaus" element={<Navigate to="/flow/drive" replace />} />
+      <Route path="/flow/longfred" element={<Navigate to="/flow/drive" replace />} />
       <Route
         path="/flow/loco"
         element={

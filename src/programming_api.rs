@@ -19,6 +19,9 @@ use crate::AppState;
 const MAX_CV: u16 = 1024;
 /// NMRA long-address ceiling.
 const MAX_DCC_ADDRESS: u16 = 10_239;
+const MAX_FUNCTION: u8 = 31;
+const DEFAULT_PULSE_MS: u64 = 1_000;
+const MAX_PULSE_MS: u64 = 5_000;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +58,19 @@ pub struct AddressSetRequest {
     pub mode: Option<String>,
     #[serde(default)]
     pub verify: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FunctionPulseRequest {
+    pub address: u16,
+    pub function: u8,
+    #[serde(default)]
+    pub duration_ms: Option<u64>,
+    /// Participant login — pulse runs via BigFred Impersonate-As so
+    /// dcc-bus `CanDrive` sees the vehicle owner, not the organizer.
+    #[serde(rename = "as")]
+    pub as_login: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -128,6 +144,42 @@ pub async fn address_set(
         "verify": body.verify.unwrap_or(false),
     });
     run(&state, &token, FRAME_ADDR_SET, payload).await
+}
+
+/// Turns a function on, waits `durationMs` (default 1s), then turns it off.
+/// Ops-mode main track — not programming track. Requires `as` (participant
+/// login) so the dcc-bus drive gate runs as the vehicle owner.
+pub async fn function_pulse(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<FunctionPulseRequest>,
+) -> ApiResult<Json<ProgrammingResponse>> {
+    let token = bearer(&headers)?;
+    validate_address(body.address)?;
+    if body.function > MAX_FUNCTION {
+        return Err(ApiError::bad_request("invalid_function"));
+    }
+    let as_login = body.as_login.trim();
+    if as_login.is_empty() {
+        return Err(ApiError::bad_request("impersonate_required"));
+    }
+    let duration_ms = body.duration_ms.unwrap_or(DEFAULT_PULSE_MS).clamp(1, MAX_PULSE_MS);
+
+    if !state.cfg.enabled {
+        return Err(ApiError::new(
+            axum::http::StatusCode::FORBIDDEN,
+            "wizard_disabled",
+        ));
+    }
+
+    let ack = state
+        .dcc
+        .pulse_function(&token, as_login, body.address, body.function, duration_ms)
+        .await?;
+    Ok(Json(ProgrammingResponse {
+        ack,
+        command_station_id: state.dcc.status().command_station_id,
+    }))
 }
 
 /// Reports the socket state plus the station the wizard would program on.
