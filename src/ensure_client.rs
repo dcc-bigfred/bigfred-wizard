@@ -47,6 +47,12 @@ pub enum EnsureError {
         #[source]
         source: serde_json::Error,
     },
+    #[error("serialize {path}: {source}")]
+    Serialize {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
 }
 
 /// Path of the drop-in for `cfg.sso_client_id`.
@@ -67,10 +73,14 @@ pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
 
     let path = client_path(cfg);
     if path.exists() {
-        sync_redirect_uris(&path, cfg)?;
+        let changed = sync_redirect_uris(&path, cfg)?;
         harden_dropin_file(&path);
-        // chmod/chown alone may not wake BigFred's fsnotify watch; bump mtime.
-        touch_for_reload(&path);
+        // Bump mtime only when we actually changed the file or its perms;
+        // an unconditional touch would spurious-wake BigFred's fsnotify on
+        // every call (and, before this fix, on every token exchange).
+        if changed {
+            touch_for_reload(&path);
+        }
         tracing::info!(path = %path.display(), "oauth client drop-in present");
         return Ok(path);
     }
@@ -88,7 +98,10 @@ pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
     };
     write_private(
         &path,
-        &serde_json::to_vec_pretty(&file).expect("serialize client"),
+        &serde_json::to_vec_pretty(&file).map_err(|source| EnsureError::Serialize {
+            path: path.clone(),
+            source,
+        })?,
     )?;
     harden_dropin_file(&path);
     tracing::info!(path = %path.display(), "seeded oauth client drop-in");
@@ -96,8 +109,8 @@ pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
 }
 
 /// Merges config + builtin redirect URIs into an existing drop-in without
-/// rotating the client secret.
-fn sync_redirect_uris(path: &Path, cfg: &Config) -> Result<(), EnsureError> {
+/// rotating the client secret. Returns `true` if the file was rewritten.
+fn sync_redirect_uris(path: &Path, cfg: &Config) -> Result<bool, EnsureError> {
     let raw = std::fs::read(path).map_err(|source| EnsureError::Io {
         path: path.to_path_buf(),
         source,
@@ -120,17 +133,20 @@ fn sync_redirect_uris(path: &Path, cfg: &Config) -> Result<(), EnsureError> {
     }
     merge_builtin_redirect_uris(&mut file.redirect_uris);
     if file.redirect_uris == before {
-        return Ok(());
+        return Ok(false);
     }
 
-    let mut data = serde_json::to_vec_pretty(&file).expect("serialize client");
+    let mut data = serde_json::to_vec_pretty(&file).map_err(|source| EnsureError::Serialize {
+        path: path.to_path_buf(),
+        source,
+    })?;
     data.push(b'\n');
     std::fs::write(path, data).map_err(|source| EnsureError::Io {
         path: path.to_path_buf(),
         source,
     })?;
     tracing::info!(path = %path.display(), "merged redirect URIs into oauth client drop-in");
-    Ok(())
+    Ok(true)
 }
 
 /// Reads the client secret back for the token exchange.
@@ -177,14 +193,26 @@ fn harden_dropin_dir(dir: &Path) {
     #[cfg(unix)]
     {
         use std::os::unix::fs::{chown, PermissionsExt};
-        let _ = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o750));
+        if let Err(err) = std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o750)) {
+            tracing::warn!(path = %dir.display(), error = %err, "could not set drop-in dir mode 0750");
+        }
         if let Some(gid) = bigfred_gid() {
-            let _ = chown(dir, None, Some(gid));
+            if let Err(err) = chown(dir, None, Some(gid)) {
+                tracing::warn!(path = %dir.display(), error = %err, "could not chown drop-in dir to bigfred — BigFred may not read it");
+            }
+        } else {
+            tracing::warn!(path = %dir.display(), "bigfred group not found — drop-in dir stays root-owned; BigFred may return invalid_client");
         }
         if let Some(parent) = dir.parent() {
-            let _ = std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o750));
+            if let Err(err) =
+                std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o750))
+            {
+                tracing::warn!(path = %parent.display(), error = %err, "could not set drop-in parent dir mode 0750");
+            }
             if let Some(gid) = bigfred_gid() {
-                let _ = chown(parent, None, Some(gid));
+                if let Err(err) = chown(parent, None, Some(gid)) {
+                    tracing::warn!(path = %parent.display(), error = %err, "could not chown drop-in parent dir to bigfred");
+                }
             }
         }
     }
@@ -199,9 +227,15 @@ fn harden_dropin_file(path: &Path) {
     #[cfg(unix)]
     {
         use std::os::unix::fs::{chown, PermissionsExt};
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o640));
+        if let Err(err) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o640)) {
+            tracing::warn!(path = %path.display(), error = %err, "could not set drop-in mode 0640");
+        }
         if let Some(gid) = bigfred_gid() {
-            let _ = chown(path, None, Some(gid));
+            if let Err(err) = chown(path, None, Some(gid)) {
+                tracing::warn!(path = %path.display(), error = %err, "could not chown drop-in to bigfred — BigFred may return invalid_client");
+            }
+        } else {
+            tracing::warn!(path = %path.display(), "bigfred group not found — drop-in stays root-owned; BigFred may return invalid_client");
         }
     }
     #[cfg(not(unix))]
@@ -210,17 +244,41 @@ fn harden_dropin_file(path: &Path) {
     }
 }
 
+/// Cached GID of the `bigfred` group. Parsed once from `/etc/group` and
+/// memoised in a `OnceLock`; malformed lines are skipped with a `warn!`
+/// rather than aborting the whole lookup.
 fn bigfred_gid() -> Option<u32> {
-    let text = std::fs::read_to_string("/etc/group").ok()?;
-    for line in text.lines() {
-        let mut parts = line.split(':');
-        if parts.next()? != "bigfred" {
-            continue;
+    use std::sync::OnceLock;
+    static GID: OnceLock<Option<u32>> = OnceLock::new();
+    *GID.get_or_init(|| {
+        let Ok(text) = std::fs::read_to_string("/etc/group") else {
+            tracing::warn!("could not read /etc/group — cannot resolve bigfred gid");
+            return None;
+        };
+        for line in text.lines() {
+            let mut parts = line.split(':');
+            if parts.next() != Some("bigfred") {
+                continue;
+            }
+            let _passwd = parts.next();
+            let Some(gid_str) = parts.next() else {
+                tracing::warn!(
+                    line,
+                    "malformed bigfred entry in /etc/group — missing gid field"
+                );
+                continue;
+            };
+            match gid_str.parse::<u32>() {
+                Ok(gid) => return Some(gid),
+                Err(err) => {
+                    tracing::warn!(line, error = %err, "malformed bigfred gid in /etc/group");
+                    continue;
+                }
+            }
         }
-        let _passwd = parts.next()?;
-        return parts.next()?.parse().ok();
-    }
-    None
+        tracing::warn!("bigfred group not found in /etc/group");
+        None
+    })
 }
 
 fn touch_for_reload(path: &Path) {

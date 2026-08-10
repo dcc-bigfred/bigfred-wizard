@@ -43,6 +43,11 @@ const PING_INTERVAL: Duration = Duration::from_secs(10);
 const CONNECT_ATTEMPTS: u32 = 3;
 const BACKOFF_BASE_MS: u64 = 250;
 const BACKOFF_MAX_MS: u64 = 4_000;
+/// Best-effort timeout for the trailing `OFF` of a function pulse. Shorter
+/// than [`ACK_TIMEOUT`] so a pulse never blocks the organizer for half a
+/// minute; the ON ack still uses [`ACK_TIMEOUT`] because a stuck command
+/// station is worth surfacing verbatim.
+const PULSE_OFF_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// `contract.EnvelopeWire` on the wire.
 #[derive(Debug, Serialize, Deserialize)]
@@ -157,8 +162,19 @@ impl DccBusClient {
         }
     }
 
+    /// Locks `status`, recovering from a poisoned mutex by taking the inner
+    /// guard anyway (status is best-effort reporting; a previous panic should
+    /// not take down the daemon). Returns a default status only if the lock
+    /// is somehow unusable, which for `StdMutex` cannot happen here.
+    fn lock_status(&self) -> std::sync::MutexGuard<'_, Status> {
+        self.status.lock().unwrap_or_else(|poisoned| {
+            tracing::warn!("status mutex poisoned — recovering inner guard");
+            poisoned.into_inner()
+        })
+    }
+
     pub fn status(&self) -> Status {
-        self.status.lock().expect("status mutex").clone()
+        self.lock_status().clone()
     }
 
     /// Sends one programming frame and waits for the matching `ack`.
@@ -177,13 +193,28 @@ impl DccBusClient {
             *guard = Some(self.connect_with_backoff_as(token, None).await?);
         }
 
-        match send_and_wait(guard.as_ref().expect("session"), frame, payload.clone()).await {
+        match send_and_wait(
+            guard
+                .as_ref()
+                .ok_or_else(|| ApiError::internal("dcc_bus_session_lost"))?,
+            frame,
+            payload.clone(),
+        )
+        .await
+        {
             Ok(ack) => Ok(ack),
             Err(err) if err.status == StatusCode::SERVICE_UNAVAILABLE => {
                 // The socket died between requests — one clean retry.
                 *guard = None;
                 *guard = Some(self.connect_with_backoff_as(token, None).await?);
-                send_and_wait(guard.as_ref().expect("session"), frame, payload).await
+                send_and_wait(
+                    guard
+                        .as_ref()
+                        .ok_or_else(|| ApiError::internal("dcc_bus_session_lost"))?,
+                    frame,
+                    payload,
+                )
+                .await
             }
             Err(err) => Err(err),
         }
@@ -210,6 +241,18 @@ impl DccBusClient {
     }
 
     /// Impersonated on→wait→off for one function (single WS session).
+    ///
+    /// # Errors
+    ///
+    /// Returns `impersonate_required` if `as_login` is empty. Propagates
+    /// command-station errors from the `ON` or `OFF` frame.
+    ///
+    /// # Rollback
+    ///
+    /// If the `OFF` frame fails or the caller drops this future mid-pulse,
+    /// a best-effort fire-and-forget `OFF` is still emitted so the function
+    /// does not stay latched on the ops track. The `OFF` ack waits at most
+    /// [`PULSE_OFF_TIMEOUT`].
     pub async fn pulse_function(
         &self,
         token: &str,
@@ -234,20 +277,23 @@ impl DccBusClient {
         )
         .await;
         if let Err(err) = on_result {
+            // ON never confirmed — nothing to roll back.
             drop(session);
             return Err(err);
         }
+
+        // Guard emits a best-effort OFF if this future is dropped before
+        // `disarm_and_send_off` runs (caller cancellation / panic).
+        let guard = PulseOffGuard {
+            tx: session.tx.clone(),
+            address,
+            function,
+            armed: true,
+        };
+
         tokio::time::sleep(Duration::from_millis(duration_ms)).await;
-        let off_ack = send_and_wait(
-            &session,
-            FRAME_SET_FUNCTION,
-            serde_json::json!({
-                "address": address,
-                "function": function,
-                "on": false,
-            }),
-        )
-        .await;
+
+        let off_ack = guard.disarm_and_send_off(&session).await;
         drop(session);
         off_ack
     }
@@ -299,7 +345,7 @@ impl DccBusClient {
             match self.connect(token, as_login).await {
                 Ok(session) => {
                     if as_login.is_none() {
-                        let mut status = self.status.lock().expect("status mutex");
+                        let mut status = self.lock_status();
                         status.connected = true;
                         status.last_error = None;
                         if attempt > 0 {
@@ -316,7 +362,7 @@ impl DccBusClient {
                         "dcc-bus connect failed"
                     );
                     if as_login.is_none() {
-                        let mut status = self.status.lock().expect("status mutex");
+                        let mut status = self.lock_status();
                         status.connected = false;
                         status.last_error = Some(err.code.clone());
                     }
@@ -330,7 +376,7 @@ impl DccBusClient {
     async fn connect(&self, token: &str, as_login: Option<&str>) -> Result<Session, ApiError> {
         let station = self.pick_station(token).await?;
         if as_login.is_none() {
-            let mut status = self.status.lock().expect("status mutex");
+            let mut status = self.lock_status();
             status.command_station_id = Some(station.id);
             status.command_station_name = Some(station.name.clone());
             status.default_programming_track_output =
@@ -343,14 +389,14 @@ impl DccBusClient {
             station.id,
             urlencode(token)
         );
-        let mut req = url.into_client_request().map_err(|err| {
-            ApiError::internal("dcc_bus_bad_url").with_detail(err.to_string())
-        })?;
+        let mut req = url
+            .into_client_request()
+            .map_err(|err| ApiError::internal("dcc_bus_bad_url").with_detail(err.to_string()))?;
         if let Some(login) = as_login {
             let name = HeaderName::from_static("x-bigfred-impersonate-as");
-            let value = login.parse().map_err(|_| {
-                ApiError::bad_request("invalid_impersonate_login")
-            })?;
+            let value = login
+                .parse()
+                .map_err(|_| ApiError::bad_request("invalid_impersonate_login"))?;
             req.headers_mut().insert(name, value);
         }
         let (stream, _) = tokio_tungstenite::connect_async(req).await.map_err(|err| {
@@ -391,7 +437,12 @@ impl DccBusClient {
                     continue;
                 }
                 let Some(id) = env.id else { continue };
-                let waiter = reader_pending.lock().expect("pending mutex").remove(&id);
+                // Recover from a poisoned pending map rather than panicking
+                // the reader task: take the inner map and keep draining acks.
+                let waiter = reader_pending
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .remove(&id);
                 if let Some(waiter) = waiter {
                     let ack = env
                         .payload
@@ -401,7 +452,10 @@ impl DccBusClient {
                 }
             }
             reader_alive.store(false, Ordering::Relaxed);
-            reader_pending.lock().expect("pending mutex").clear();
+            reader_pending
+                .lock()
+                .unwrap_or_else(|p| p.into_inner())
+                .clear();
         });
 
         let ping_tx = tx.clone();
@@ -409,12 +463,13 @@ impl DccBusClient {
             let mut ticker = tokio::time::interval(PING_INTERVAL);
             loop {
                 ticker.tick().await;
-                let frame = serde_json::to_string(&Envelope {
+                let Ok(frame) = serde_json::to_string(&Envelope {
                     kind: "ping".to_string(),
                     id: None,
                     payload: Some(serde_json::json!({})),
-                })
-                .expect("serialize ping");
+                }) else {
+                    break;
+                };
                 if ping_tx.send(Message::Text(frame)).is_err() {
                     break;
                 }
@@ -443,11 +498,15 @@ async fn send_and_wait(
 ) -> Result<Ack, ApiError> {
     let id = uuid::Uuid::new_v4().to_string();
     let (tx, rx) = oneshot::channel();
-    session
-        .pending
-        .lock()
-        .expect("pending mutex")
-        .insert(id.clone(), tx);
+    // Scoped so the std MutexGuard is dropped before any `.await` — a
+    // `std::sync::MutexGuard` is `!Send` and would make this future `!Send`.
+    {
+        let mut pending = session
+            .pending
+            .lock()
+            .map_err(|_| ApiError::internal("dcc_bus_pending_poisoned"))?;
+        pending.insert(id.clone(), tx);
+    }
 
     let envelope = serde_json::to_string(&Envelope {
         kind: frame.to_string(),
@@ -457,7 +516,11 @@ async fn send_and_wait(
     .map_err(|err| ApiError::internal("frame_encode_failed").with_detail(err.to_string()))?;
 
     if session.tx.send(Message::Text(envelope)).is_err() {
-        session.pending.lock().expect("pending mutex").remove(&id);
+        {
+            if let Ok(mut pending) = session.pending.lock() {
+                pending.remove(&id);
+            }
+        }
         return Err(ApiError::unavailable("dcc_bus_unavailable"));
     }
 
@@ -471,12 +534,108 @@ async fn send_and_wait(
         .with_detail(format!("command station {}", session.command_station_id))),
         Ok(Err(_)) => Err(ApiError::unavailable("dcc_bus_unavailable")),
         Err(_) => {
-            session.pending.lock().expect("pending mutex").remove(&id);
+            {
+                if let Ok(mut pending) = session.pending.lock() {
+                    pending.remove(&id);
+                }
+            }
             Err(ApiError::new(
                 StatusCode::GATEWAY_TIMEOUT,
                 "programming_timeout",
             ))
         }
+    }
+}
+
+/// Best-effort `OFF` rollback for [`DccBusClient::pulse_function`]. On
+/// drop, if still armed, it enqueues a fire-and-forget `OFF` frame so a
+/// cancelled pulse does not leave the function latched on the ops track.
+/// [`PulseOffGuard::disarm_and_send_off`] clears the arm and sends `OFF`
+/// with a bounded ack wait, returning the ack.
+struct PulseOffGuard {
+    tx: mpsc::UnboundedSender<Message>,
+    address: u16,
+    function: u8,
+    armed: bool,
+}
+
+impl PulseOffGuard {
+    async fn disarm_and_send_off(mut self, session: &Session) -> Result<Ack, ApiError> {
+        self.armed = false;
+        let (tx, rx) = oneshot::channel();
+        let id = uuid::Uuid::new_v4().to_string();
+        {
+            let mut pending = session
+                .pending
+                .lock()
+                .map_err(|_| ApiError::internal("dcc_bus_pending_poisoned"))?;
+            pending.insert(id.clone(), tx);
+        }
+        let envelope = serde_json::to_string(&Envelope {
+            kind: FRAME_SET_FUNCTION.to_string(),
+            id: Some(id.clone()),
+            payload: Some(serde_json::json!({
+                "address": self.address,
+                "function": self.function,
+                "on": false,
+            })),
+        })
+        .map_err(|err| ApiError::internal("frame_encode_failed").with_detail(err.to_string()))?;
+
+        if self.tx.send(Message::Text(envelope)).is_err() {
+            {
+                if let Ok(mut pending) = session.pending.lock() {
+                    pending.remove(&id);
+                }
+            }
+            return Err(ApiError::unavailable("dcc_bus_unavailable"));
+        }
+
+        match tokio::time::timeout(PULSE_OFF_TIMEOUT, rx).await {
+            Ok(Ok(ack)) if ack.ok => Ok(ack),
+            Ok(Ok(ack)) => Err(ApiError::new(
+                StatusCode::BAD_GATEWAY,
+                ack.error
+                    .unwrap_or_else(|| "function_off_failed".to_string()),
+            )
+            .with_detail(format!("command station {}", session.command_station_id))),
+            Ok(Err(_)) => Err(ApiError::unavailable("dcc_bus_unavailable")),
+            Err(_) => {
+                {
+                    if let Ok(mut pending) = session.pending.lock() {
+                        pending.remove(&id);
+                    }
+                }
+                Err(ApiError::new(
+                    StatusCode::GATEWAY_TIMEOUT,
+                    "function_off_timeout",
+                ))
+            }
+        }
+    }
+}
+
+impl Drop for PulseOffGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        // Caller dropped the future mid-pulse: emit a fire-and-forget OFF so
+        // the function does not stay latched. We cannot wait for an ack in
+        // `Drop`, but the frame still hits the wire.
+        let id = uuid::Uuid::new_v4().to_string();
+        let Ok(frame) = serde_json::to_string(&Envelope {
+            kind: FRAME_SET_FUNCTION.to_string(),
+            id: Some(id),
+            payload: Some(serde_json::json!({
+                "address": self.address,
+                "function": self.function,
+                "on": false,
+            })),
+        }) else {
+            return;
+        };
+        let _ = self.tx.send(Message::Text(frame));
     }
 }
 

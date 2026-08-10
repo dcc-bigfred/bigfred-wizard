@@ -27,9 +27,8 @@ pub async fn qr_svg(
         )));
     };
 
-    let code = QrCode::new(url.as_bytes()).map_err(|err| {
-        ApiError::internal("qr_encode_failed").with_detail(err.to_string())
-    })?;
+    let code = QrCode::new(url.as_bytes())
+        .map_err(|err| ApiError::internal("qr_encode_failed").with_detail(err.to_string()))?;
     let svg = code
         .render::<svg::Color>()
         .min_dimensions(512, 512)

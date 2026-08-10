@@ -8,9 +8,9 @@
   "redirectUris": [
     "http://localhost:8091/auth/callback",
     "http://localhost:5175/auth/callback",
-    "http://bigfred.local:8081/auth/callback",
-    "http://bigfred-wizard.local:8081/auth/callback",
-    "http://wizard.local:8081/auth/callback"
+    "http://bigfred.local:8091/auth/callback",
+    "http://bigfred-wizard.local:8091/auth/callback",
+    "http://wizard.local:8091/auth/callback"
   ],
   "corsEnabled": false,
   "corsOrigins": [],

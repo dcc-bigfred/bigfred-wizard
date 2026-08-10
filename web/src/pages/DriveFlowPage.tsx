@@ -230,13 +230,28 @@ export default function DriveFlowPage() {
     if (!pairing || paired || !me || !user || !station) {
       return;
     }
+    // Stop polling once the pairing window has expired — the retry path
+    // (re-pair) restarts this effect by clearing `pairing` first.
+    const expiredNow = pairing.expiresAt < Date.now();
+    if (expiredNow) {
+      return;
+    }
+    let consecutiveFailures = 0;
     const timer = window.setInterval(() => {
       api
         .remoteStatus(me.layoutId, station.id, user.login)
         .then((status) => {
+          consecutiveFailures = 0;
           if (status.paired) setPaired(true);
         })
-        .catch(() => undefined);
+        .catch((err) => {
+          consecutiveFailures += 1;
+          // Surface persistent status failures instead of spinning
+          // silently — a kiosk stuck on a dead network is the worst case.
+          if (consecutiveFailures >= 3) {
+            setError(err);
+          }
+        });
     }, POLL_MS);
     return () => window.clearInterval(timer);
   }, [pairing, paired, me, user, station]);
@@ -312,6 +327,11 @@ export default function DriveFlowPage() {
                 <CircularProgress />
               </Box>
             )}
+            <Stack direction="row" sx={{ mt: 3 }}>
+              <Button variant="outlined" onClick={() => navigate("/")}>
+                {t("app.cancel")}
+              </Button>
+            </Stack>
           </Box>
         )}
 
@@ -401,14 +421,6 @@ export default function DriveFlowPage() {
             loco={pickedLoco}
             onDone={() => navigate("/")}
           />
-        )}
-
-        {phase === "user" && (
-          <Stack direction="row" sx={{ mt: 3 }}>
-            <Button variant="outlined" onClick={() => navigate("/")}>
-              {t("app.cancel")}
-            </Button>
-          </Stack>
         )}
       </Paper>
     </AppShell>

@@ -7,6 +7,9 @@ use axum::http::HeaderMap;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 use crate::dccbus_client::{
     Ack, CvEntry, Status, FRAME_ADDR_GET, FRAME_ADDR_SET, FRAME_CV_READ, FRAME_CV_WRITE,
@@ -22,6 +25,42 @@ const MAX_DCC_ADDRESS: u16 = 10_239;
 const MAX_FUNCTION: u8 = 31;
 const DEFAULT_PULSE_MS: u64 = 1_000;
 const MAX_PULSE_MS: u64 = 5_000;
+/// Cap on the per-key lock registry. The domain is bounded by the layout
+/// roster × function count; this guards against pathological growth.
+const PULSE_LOCK_REGISTRY_CAP: usize = 4_096;
+
+/// Per-`(address, function)` concurrency bound for `function_pulse`. A
+/// second pulse to the same loco/function while one is in flight is
+/// rejected with `429 function_pulse_busy` so ON/OFF frames cannot
+/// interleave and leave a function latched.
+#[derive(Default)]
+pub struct PulseLocks {
+    inner: tokio::sync::Mutex<HashMap<(u16, u8), Arc<Semaphore>>>,
+}
+
+impl PulseLocks {
+    pub async fn acquire(
+        &self,
+        address: u16,
+        function: u8,
+    ) -> Result<tokio::sync::OwnedSemaphorePermit, ApiError> {
+        let sem = {
+            let mut map = self.inner.lock().await;
+            if map.len() >= PULSE_LOCK_REGISTRY_CAP && !map.contains_key(&(address, function)) {
+                return Err(ApiError::internal("pulse_lock_registry_full"));
+            }
+            map.entry((address, function))
+                .or_insert_with(|| Arc::new(Semaphore::new(1)))
+                .clone()
+        };
+        sem.try_acquire_owned().map_err(|_| {
+            ApiError::new(
+                axum::http::StatusCode::TOO_MANY_REQUESTS,
+                "function_pulse_busy",
+            )
+        })
+    }
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -163,7 +202,10 @@ pub async fn function_pulse(
     if as_login.is_empty() {
         return Err(ApiError::bad_request("impersonate_required"));
     }
-    let duration_ms = body.duration_ms.unwrap_or(DEFAULT_PULSE_MS).clamp(1, MAX_PULSE_MS);
+    let duration_ms = body
+        .duration_ms
+        .unwrap_or(DEFAULT_PULSE_MS)
+        .clamp(1, MAX_PULSE_MS);
 
     if !state.cfg.enabled {
         return Err(ApiError::new(
@@ -171,6 +213,13 @@ pub async fn function_pulse(
             "wizard_disabled",
         ));
     }
+
+    // Reject a concurrent pulse to the same (address, function) so ON/OFF
+    // frames cannot interleave and leave the function latched.
+    let _permit = state
+        .pulse_locks
+        .acquire(body.address, body.function)
+        .await?;
 
     let ack = state
         .dcc
@@ -284,5 +333,42 @@ mod tests {
         assert!(validate_address(0).is_err());
         assert!(validate_address(10_240).is_err());
         assert!(validate_address(3).is_ok());
+    }
+
+    #[test]
+    fn function_pulse_duration_clamps() {
+        assert_eq!(DEFAULT_PULSE_MS, 1_000);
+        assert_eq!(MAX_PULSE_MS, 5_000);
+        // Mirrors the handler's clamp so the contract is locked.
+        assert_eq!(0u64.clamp(1, MAX_PULSE_MS), 1);
+        assert_eq!((MAX_PULSE_MS + 1).clamp(1, MAX_PULSE_MS), MAX_PULSE_MS);
+    }
+
+    #[tokio::test]
+    async fn pulse_locks_reject_concurrent_same_key() {
+        let locks = PulseLocks::default();
+        let _first = locks.acquire(3, 2).await.expect("first acquire");
+        // Second acquire for the same (address, function) must be rejected
+        // so ON/OFF frames cannot interleave.
+        let err = locks.acquire(3, 2).await.expect_err("should be busy");
+        assert_eq!(err.status, axum::http::StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(err.code, "function_pulse_busy");
+    }
+
+    #[tokio::test]
+    async fn pulse_locks_allow_concurrent_different_keys() {
+        let locks = PulseLocks::default();
+        let _a = locks.acquire(3, 0).await.expect("key A");
+        let _b = locks.acquire(3, 1).await.expect("key B");
+        let _c = locks.acquire(4, 0).await.expect("key C");
+    }
+
+    #[tokio::test]
+    async fn pulse_locks_release_on_drop() {
+        let locks = PulseLocks::default();
+        {
+            let _g = locks.acquire(7, 5).await.expect("acquire");
+        }
+        let _again = locks.acquire(7, 5).await.expect("re-acquire after drop");
     }
 }

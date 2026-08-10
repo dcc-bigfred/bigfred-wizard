@@ -59,6 +59,7 @@ pub struct AppState {
     pub cfg: Arc<Config>,
     pub http: reqwest::Client,
     pub dcc: Arc<DccBusClient>,
+    pub pulse_locks: Arc<programming_api::PulseLocks>,
 }
 
 #[tokio::main]
@@ -98,6 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cfg: Arc::clone(&cfg),
         http: http.clone(),
         dcc: Arc::new(DccBusClient::new(Arc::clone(&cfg), http)),
+        pulse_locks: Arc::new(programming_api::PulseLocks::default()),
     };
 
     let listener = tokio::net::TcpListener::bind(addr).await?;

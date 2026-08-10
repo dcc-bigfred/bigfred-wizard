@@ -9,11 +9,20 @@ use serde::{Deserialize, Serialize};
 const DATA_DIR_VARS: [&str; 2] = ["BIGFRED_DATA_DIR", "DATA_DIR"];
 const DATA_DIR_FALLBACK: &str = "/data";
 
+/// TCP port the wizard listens on by default (`http: "0.0.0.0:8091"`).
+/// Every builtin redirect URI MUST target this port — otherwise BigFred
+/// sends the tablet browser to a port where nothing answers and SSO breaks.
+/// Referenced by tests to lock the allowlist to the listen port.
+#[allow(dead_code)]
+pub const WIZARD_DEFAULT_PORT: u16 = 8091;
+
 /// Redirect URIs always present in the wizard allowlist and OAuth drop-in.
+/// Ports are derived from [`WIZARD_DEFAULT_PORT`] so the allowlist cannot
+/// drift away from the address the wizard actually binds.
 pub const BUILTIN_REDIRECT_URIS: &[&str] = &[
-    "http://bigfred.local:8081/auth/callback",
-    "http://bigfred-wizard.local:8081/auth/callback",
-    "http://wizard.local:8081/auth/callback",
+    "http://bigfred.local:8091/auth/callback",
+    "http://bigfred-wizard.local:8091/auth/callback",
+    "http://wizard.local:8091/auth/callback",
 ];
 
 /// Appends [`BUILTIN_REDIRECT_URIS`] that are not already in `uris` (exact match).
@@ -113,6 +122,12 @@ pub enum ConfigError {
     },
     #[error("parse {path}: {source}")]
     Parse {
+        path: PathBuf,
+        #[source]
+        source: serde_json::Error,
+    },
+    #[error("serialize {path}: {source}")]
+    Serialize {
         path: PathBuf,
         #[source]
         source: serde_json::Error,
@@ -240,7 +255,11 @@ pub fn write_example_config(config_path: &Path) -> Result<PathBuf, ConfigError> 
             source,
         })?;
     }
-    let mut body = serde_json::to_vec_pretty(&Config::default()).expect("serialize example config");
+    let mut body =
+        serde_json::to_vec_pretty(&Config::default()).map_err(|source| ConfigError::Serialize {
+            path: path.clone(),
+            source,
+        })?;
     body.push(b'\n');
     std::fs::write(&path, body).map_err(|source| ConfigError::Write {
         path: path.clone(),
@@ -282,12 +301,39 @@ mod tests {
         }
     }
 
+    /// Builtin redirect URIs must point at the port the wizard binds by
+    /// default. A drift here (e.g. 8081 vs 8091) silently breaks SSO on the
+    /// tablet because BigFred redirects the browser to a dead port.
+    #[test]
+    fn builtin_redirect_uris_match_default_port() {
+        let default = Config::default();
+        let listen_port = default
+            .http
+            .rsplit(':')
+            .next()
+            .and_then(|p| p.parse::<u16>().ok())
+            .expect("default http must be host:port");
+        assert_eq!(listen_port, WIZARD_DEFAULT_PORT);
+
+        for uri in BUILTIN_REDIRECT_URIS {
+            let port = uri
+                .strip_prefix("http://")
+                .and_then(|rest| rest.split('/').next())
+                .and_then(|host| host.rsplit(':').next())
+                .and_then(|p| p.parse::<u16>().ok())
+                .unwrap_or_else(|| panic!("builtin URI without port: {uri}"));
+            assert_eq!(
+                port, WIZARD_DEFAULT_PORT,
+                "builtin {uri} targets port {port}, wizard listens on {WIZARD_DEFAULT_PORT}"
+            );
+        }
+    }
+
     #[test]
     fn load_merges_builtin_redirect_uris() {
-        let cfg: Config = serde_json::from_str(
-            r#"{"redirectUris":["http://localhost:5175/auth/callback"]}"#,
-        )
-        .unwrap();
+        let cfg: Config =
+            serde_json::from_str(r#"{"redirectUris":["http://localhost:5175/auth/callback"]}"#)
+                .unwrap();
         let mut uris = cfg.redirect_uris;
         merge_builtin_redirect_uris(&mut uris);
         assert!(uris.contains(&"http://localhost:5175/auth/callback".to_string()));

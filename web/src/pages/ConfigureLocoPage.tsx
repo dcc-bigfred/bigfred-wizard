@@ -302,12 +302,18 @@ export default function ConfigureLocoPage() {
       try {
         await api.addVehicleToLayout(me.layoutId, savedVehicle.id, user.login);
       } catch (err) {
-        if (
-          !(err instanceof ApiError) ||
-          (err.code !== "layout_vehicle_already_on_roster" && err.status !== 409)
-        ) {
+        // Idempotent: the loco is already on this layout's roster. Only
+        // swallow that exact case — a generic 409 (e.g. a conflict from a
+        // different vehicle) must still surface.
+        const alreadyOnRoster =
+          err instanceof ApiError && err.code === "layout_vehicle_already_on_roster";
+        if (!alreadyOnRoster) {
           throw err;
         }
+        console.warn("addVehicleToLayout: already on roster, continuing to F2 pulse", {
+          layoutId: me.layoutId,
+          vehicleId: savedVehicle.id,
+        });
       }
       await api.pulseFunction(address, 2, user.login, 1000);
     } catch (err) {
