@@ -30,6 +30,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive"] }
 thiserror = "1"
 url = "2"
+qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 
 [profile.release]
 lto = true

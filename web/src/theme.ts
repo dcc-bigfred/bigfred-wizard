@@ -30,7 +30,16 @@ const theme = createTheme({
       styleOverrides: { input: { fontSize: "1.4rem", paddingBlock: 18 } },
     },
     MuiListItemButton: {
-      styleOverrides: { root: { minHeight: 64 } },
+      styleOverrides: {
+        root: {
+          minHeight: 72,
+        },
+      },
+    },
+    MuiRadio: {
+      styleOverrides: {
+        root: { padding: 10 },
+      },
     },
   },
 });

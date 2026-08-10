@@ -13,14 +13,22 @@
     "loading": "Wczytywanie…",
     "done": "Gotowe",
     "home": "Menu główne",
+    "fullscreen": "Pełny ekran",
+    "exitFullscreen": "Zamknij pełny ekran",
     "disabled": "Kreator jest wyłączony",
-    "disabledHint": "Ustaw \"enabled\": true w /data/etc/bigfred-wizard.json i zrestartuj usługę bigfred-wizard.",
+    "disabledHint": "Ustaw \"enabled\": true w /data/etc/bigfred/wizard/bigfred-wizard.json i zrestartuj usługę bigfred-wizard.",
     "idleLogout": "Wylogowano po okresie bezczynności."
   },
   "login": {
     "heading": "Witamy na imprezie",
     "lead": "Zaloguj się kontem organizatora, aby uruchomić kreator dla uczestników.",
     "button": "Zaloguj jako organizator",
+    "layout": "Makieta",
+    "layoutHint": "Wybierz makietę, na której będzie działał kreator.",
+    "systemLayout": "Domyślna (warsztat)",
+    "layoutsError": "Nie udało się pobrać listy makiet.",
+    "enterFullscreen": "Włącz pełny ekran",
+    "exitFullscreen": "Wyłącz pełny ekran",
     "callback": "Kończenie logowania…",
     "failed": "Logowanie nie powiodło się",
     "stateMismatch": "Nieprawidłowy stan sesji logowania — spróbuj jeszcze raz.",
@@ -30,15 +38,121 @@
     "heading": "Co chcesz zrobić?",
     "tiles": {
       "account": "Utwórz nowe konto",
-      "accountHint": "Login, PIN i pula adresów DCC",
-      "phone": "Chcę jeździć aplikacją na telefon",
-      "phoneHint": "WiThrottle (Engine Driver, WiThrottle)",
-      "wlanmaus": "Roco Wlanmaus",
-      "wlanmausHint": "Sterownik Z21",
-      "longfred": "LongFred",
-      "longfredHint": "Manipulator WiThrottle",
+      "accountHint": "Od tego rozpocznij, to zajmie bardzo krótko",
+      "drive": "Chcę jeździć, pomóż mi ustawić pilot lub telefon",
+      "driveHint": "Telefon, WlanMaus, LongFred, WiFred…",
       "loco": "Skonfiguruj mi lokomotywę",
-      "locoHint": "Adres DCC i wpis w taborze"
+      "locoHint": "Zadam Ci tylko kilka pytań i gotowe"
+    }
+  },
+  "drive": {
+    "heading": "Ustawianie sterowania",
+    "pickDevice": "Czym chcesz sterować?",
+    "pickDeviceHint": "Dotknij dużej karty z obrazkiem swojego urządzenia.",
+    "pickStation": "Którą centralę wybrać?",
+    "startPairing": "Rozpocznij parowanie",
+    "alreadyPairedTitle": "Pilot już jest sparowany",
+    "alreadyPairedAsk": "Wygląda na to, że już masz sparowany pilot. Czy chcesz odparować poprzedni i sparować nowy?",
+    "keepExisting": "Nie, zostaw obecny",
+    "replacePairing": "Tak, odparuj i sparuj nowy",
+    "waiting": "Czekam, aż urządzenie się sparuje…",
+    "pairingRetryHint": "Jeśli nie udało się sparować — bez paniki, spróbuj przepisać kod ponownie.",
+    "paired": "Gotowe — urządzenie jest sparowane.",
+    "expired": "Czas minął. Zacznijmy parowanie od nowa.",
+    "pickLoco": "Którą lokomotywą chcesz jeździć?",
+    "pickLocoHint": "Pilot może sterować wszystkimi Twoimi lokomotywami. Wybierz tę, którą pokażemy w następnej instrukcji.",
+    "noLocos": "Ten uczestnik nie ma jeszcze lokomotyw w taborze.",
+    "locoAddress": "Adres DCC: {{address}}",
+    "locoNoAddress": "Bez adresu DCC",
+    "howToEnterTitle": "Jak wybrać lokomotywę „{{name}}” na urządzeniu",
+    "stepper": {
+      "device": "Urządzenie",
+      "qr": "Kod QR",
+      "drive": "Jazda",
+      "user": "Uczestnik",
+      "pairing": "Parowanie",
+      "loco": "Lokomotywa",
+      "howto": "Instrukcja"
+    },
+    "devices": {
+      "android": {
+        "title": "Telefon lub tablet z Androidem",
+        "hint": "Telefony ze sklepem Google Play, np. LG, Motorola, Samsung, Xiaomi, Sony, Asus, Nokia, Honor, Blackberry"
+      },
+      "otherPhone": {
+        "title": "Inny telefon",
+        "hint": "np. Apple iPhone"
+      },
+      "wlanmaus": {
+        "title": "Roco WlanMaus",
+        "hint": "Pilot Wi‑Fi Roco / Fleischmann Z21"
+      },
+      "railbox": {
+        "title": "Aplikacja Railbox Railroad Control",
+        "hint": "Sterowanie z telefonu przez Railbox"
+      },
+      "longfred": {
+        "title": "LongFred",
+        "hint": "Manipulator sieciowy"
+      },
+      "wifred": {
+        "title": "WiFred",
+        "hint": "Manipulator sieciowy"
+      }
+    },
+    "phone": {
+      "scanPlayTitle": "Zeskanuj kod i pobierz BigFred",
+      "scanPlayLead": "Otwórz aparat lub skaner QR na telefonie i skieruj go na ten kod — przeniesie Cię do Google Play.",
+      "scanWebTitle": "Zeskanuj kod i otwórz BigFred",
+      "scanWebLead": "Otwórz aparat lub skaner QR na telefonie i skieruj go na ten kod — otworzy BigFred w przeglądarce.",
+      "qrAlt": "Kod QR",
+      "androidUrlMissing": "Brak adresu aplikacji w konfiguracji (androidAppUrl). Poproś operatora o uzupełnienie /data/etc/bigfred/wizard/bigfred-wizard.json.",
+      "driveTitle": "Jak jeździć w BigFred",
+      "driveSteps": {
+        "1": "Otwórz aplikację lub stronę BigFred na telefonie.",
+        "2": "Zaloguj się loginem i PINem uczestnika (tym samym, które dostał przy zakładaniu konta).",
+        "3": "Na ekranie głównym wybierz manetkę / jazdę (lokomotywy).",
+        "4": "Wybierz swoją lokomotywę z listy i jedź regulatorami na ekranie."
+      }
+    },
+    "steps": {
+      "powerOnWlanmaus": "Włącz WlanMaus przyciskiem OK (Light / OK).",
+      "openAnyLoco": "Otwórz dowolną lokomotywę (dowolny adres) strzałkami.",
+      "powerOnHandset": "Włącz urządzenie.",
+      "openPairingLoco": "Na urządzeniu otwórz lokomotywę do parowania.",
+      "openApp": "Otwórz aplikację {{app}}.",
+      "connectBigFred": "Połącz się z serwerem BigFred w sieci klubowej.",
+      "typeDeviceName": "W nazwie urządzenia wpisz kod: <strong>{{code}}</strong>",
+      "orPairingLoco": "Albo wybierz lokomotywę „Pair with BigFred” i wciśnij kolejne klawisze:",
+      "pressWlanmausKey": "Wciśnij klawisz <strong>{{key}}</strong> (to samo co {{f}}).",
+      "pressF": "Wciśnij klawisz <strong>{{f}}</strong>."
+    },
+    "howToEnter": {
+      "wlanmaus": {
+        "1": "Na WlanMausie przejdź do wyboru lokomotywy (biblioteka lub tryb adresu).",
+        "2": "Wpisz lub wybierz adres {{address}} ({{name}}).",
+        "3": "Potwierdź OK — możesz jeździć."
+      },
+      "railbox": {
+        "1": "W aplikacji Railbox otwórz listę lokomotyw.",
+        "2": "Dodaj lub wybierz lokomotywę o adresie {{address}} ({{name}}).",
+        "3": "Przejdź do jazdy tą lokomotywą."
+      },
+      "longfred": {
+        "1": "Na LongFredzie wejdź w wybór lokomotywy.",
+        "2": "Ustaw adres {{address}} ({{name}}).",
+        "3": "Potwierdź i jedź."
+      },
+      "wifred": {
+        "1": "Na WiFredzie wejdź w wybór lokomotywy.",
+        "2": "Ustaw adres {{address}} ({{name}}).",
+        "3": "Potwierdź i jedź."
+      },
+      "withrottle": {
+        "1": "W aplikacji otwórz listę lokomotyw BigFred.",
+        "2": "Wybierz lokomotywę o adresie {{address}} ({{name}}).",
+        "3": "Przejdź do manetki i jedź."
+      }
     }
   },
   "account": {
@@ -46,12 +160,16 @@
     "steps": {
       "login": "Login",
       "pin": "PIN",
+      "pinRepeat": "Powtórz PIN",
       "summary": "Podsumowanie"
     },
     "loginLabel": "Login uczestnika",
     "loginHint": "Małe litery, bez spacji, np. tomek",
     "pinLabel": "PIN (4–6 cyfr)",
     "pinRepeat": "Powtórz PIN",
+    "rememberCredentials": "Zapamiętaj login i PIN — pozwolą Ci się zalogować w aplikacji na telefonie.",
+    "showPin": "Pokaż PIN",
+    "hidePin": "Ukryj PIN",
     "pinMismatch": "PIN-y nie są takie same.",
     "pinTooShort": "PIN musi mieć od 4 do 6 cyfr.",
     "loginTooShort": "Login musi mieć co najmniej 3 znaki.",
@@ -62,71 +180,57 @@
     "another": "Utwórz kolejne konto"
   },
   "pair": {
-    "heading": {
-      "phone": "Telefon jako sterownik (WiThrottle)",
-      "wlanmaus": "Roco Wlanmaus (Z21)",
-      "longfred": "LongFred (WiThrottle)"
-    },
-    "steps": {
-      "user": "Uczestnik",
-      "station": "Centrala",
-      "pairing": "Parowanie"
-    },
-    "pickUser": "Dla kogo parujemy sterownik?",
+    "pickUser": "Dla kogo ustawiamy sterowanie?",
     "searchUser": "Szukaj uczestnika",
-    "noUsers": "Brak kont — najpierw utwórz konto uczestnika.",
-    "allVehicles": "Udostępnij wszystkie pojazdy uczestnika",
-    "start": "Rozpocznij parowanie",
-    "waiting": "Czekam na sterownik…",
-    "codeLabel": "Kod parowania",
-    "cvLabel": "Ustaw CV3 i CV4",
-    "paired": "Sterownik sparowany.",
-    "expired": "Kod wygasł — rozpocznij parowanie ponownie.",
-    "instructionsPhone": "W aplikacji WiThrottle wybierz serwer BigFred, następnie wpisz kod jako nazwę urządzenia albo wybierz lokomotywę \"Pair with BigFred\" (adres 3) i naciśnij F0–F9 dla kolejnych cyfr.",
-    "instructionsWlanmaus": "Na Wlanmausie wejdź w tryb programowania i ustaw CV3 oraz CV4 na podane wartości, albo wpisz kod klawiszami funkcyjnymi.",
-    "instructionsLongfred": "Na LongFredzie wybierz sieć BigFred i wprowadź kod parowania przyciskami funkcyjnymi."
+    "noUsers": "Brak kont — najpierw utwórz konto uczestnika."
   },
   "loco": {
     "heading": "Konfiguracja lokomotywy",
     "steps": {
       "user": "Właściciel",
-      "read": "Odczyt",
-      "address": "Nowy adres",
-      "vehicle": "Tabor"
-    },
-    "putOnTrack": "Postaw lokomotywę na torze programującym.",
-    "readCurrent": "Odczytaj obecny adres",
-    "currentAddress": "Obecny adres: {{address}}",
-    "readFailed": "Nie udało się odczytać adresu.",
-    "skipRead": "Pomiń odczyt",
-    "newAddress": "Nowy adres DCC",
-    "poolHint": "Pula uczestnika: {{ranges}}",
-    "outsidePool": "Adres spoza puli uczestnika — sterowanie może zostać odrzucone.",
-    "writeAddress": "Zapisz adres w dekoderze",
-    "written": "Adres {{address}} zapisany.",
-    "vehicleName": "Nazwa pojazdu",
-    "vehicleKind": "Rodzaj",
-    "kinds": {
       "loco": "Lokomotywa",
-      "emu": "EZT",
-      "driving_wagon": "Wagon sterowniczy",
-      "trolley": "Drezyna",
-      "wagon": "Wagon"
+      "address": "Adres DCC",
+      "program": "Programowanie"
     },
-    "createVehicle": "Dodaj do taboru",
-    "created": "Pojazd {{name}} dodany do taboru uczestnika {{login}}.",
+    "noDccPool": "Przykro mi, nie masz puli DCC — poproś administratora makiety.",
+    "pickLoco": "Którą lokomotywę konfigurujemy?",
+    "pickLocoHint": "Wybierz z listy albo dodaj nową, jeśli jej tu nie ma.",
+    "addNewLoco": "Nie znalazłem swojej lokomotywy na tej liście, potrzebuję ją dodać",
+    "detailsTitle": "Dane nowego pojazdu",
+    "vehicleName": "Nazwa",
+    "epoch": "Epoka (opcjonalne)",
+    "epochUnset": "Bez epoki",
+    "carrier": "Przewoźnik (opcjonalne)",
+    "assignment": "Przydział (opcjonalne)",
+    "revisionDate": "Data rewizji (opcjonalne)",
+    "addressExplain": "Każda osoba ma listę adresów DCC, które może przyporządkować swoim pojazdom, oto Twoje. Twój nowy pojazd otrzyma numer DCC <strong>{{address}}</strong>",
+    "dccAddress": "Numer DCC",
+    "functionListHeading": "Lista funkcji pojazdu",
+    "functionListDescribe": "Możesz opcjonalnie skopiować listę funkcji do swojego pojazdu z innego pojazdu, dzięki czemu w aplikacji BigFred na telefon bądź w sterowniku LongFred pojawią się opisy funkcji oraz ikonki. Ten krok jest opcjonalny, bardzo możliwe, że Twojego modelu nie ma na liście, wtedy wybierz „Basic”.",
+    "functionList": "Lista funkcji pojazdu",
+    "functionListChangeOptional": "(Opcjonalnie) Zmień listę funkcji pojazdu",
+    "poolHint": "Twoja pula: {{ranges}}",
+    "outsidePool": "Adres musi należeć do Twojej puli DCC.",
+    "locoAddress": "Adres DCC: {{address}}",
+    "locoNoAddress": "Bez adresu DCC",
+    "putOnTrackProgram": "Połóż lokomotywę/pojazd na torze programującym i kliknij Zaprogramuj.",
+    "program": "Zaprogramuj",
+    "programSuccess": "Adres {{address}} zapisany w dekoderze. Pojazd „{{name}}” jest gotowy.",
+    "testF2": "Przetestuj: Uruchom F2",
+    "testF2Hint": "Gdyby testowanie F2 nie działało na torze programującym, spróbuj przenieść lokomotywę na zwykły tor - na makietę.",
     "programmingOffline": "Programowanie niedostępne: brak połączenia z dcc-bus."
   },
   "errors": {
     "generic": "Coś poszło nie tak.",
     "unauthorized": "Sesja wygasła — zaloguj się ponownie.",
     "dcc_bus_unavailable": "Brak połączenia z centralą (dcc-bus). Otwórz makietę w BigFredzie i spróbuj ponownie.",
-    "no_programming_station": "Żadna centrala nie ma włączonego programowania CV.",
+    "no_programming_station": "Żadna centrala nie ma włączonego serwera pilotów (Z21 / WiThrottle).",
     "programming_timeout": "Centrala nie odpowiedziała na czas.",
     "wizard_disabled": "Kreator jest wyłączony w konfiguracji.",
     "login_taken": "Ten login jest już zajęty.",
     "dcc_pool_exhausted": "Brak wolnych adresów DCC w puli.",
     "invalid_address": "Nieprawidłowy adres DCC.",
-    "bigfred_unreachable": "Serwer BigFred jest niedostępny."
+    "bigfred_unreachable": "Serwer BigFred jest niedostępny.",
+    "qr_url_unset": "Brak adresu do kodu QR w konfiguracji."
   }
 }

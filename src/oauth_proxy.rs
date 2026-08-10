@@ -54,9 +54,36 @@ pub async fn token(
         return Err(ApiError::bad_request("invalid_redirect_uri"));
     }
 
-    let secret = ensure_client::load_secret(&state.cfg)
-        .map_err(|err| ApiError::internal("oauth_client_unreadable").with_detail(err.to_string()))?
-        .ok_or_else(|| ApiError::internal("oauth_client_missing"))?;
+    // Lazy create only when the drop-in is absent or unreadable: `ensure`
+    // does fs read/parse/write/chmod/chown and would otherwise run on every
+    // token exchange. Startup already calls `ensure`; this is a fallback
+    // for the race where BigFred's drop-in dir appears after boot.
+    let secret = match ensure_client::load_secret(&state.cfg) {
+        Ok(Some(secret)) => secret,
+        Ok(None) => {
+            tracing::info!("oauth drop-in missing on token exchange — seeding");
+            ensure_client::ensure(&state.cfg).map_err(|err| {
+                ApiError::internal("oauth_client_ensure_failed").with_detail(err.to_string())
+            })?;
+            ensure_client::load_secret(&state.cfg)
+                .map_err(|err| {
+                    ApiError::internal("oauth_client_unreadable").with_detail(err.to_string())
+                })?
+                .ok_or_else(|| ApiError::internal("oauth_client_missing"))?
+        }
+        Err(err) => {
+            // Parse error → try to re-seed a clean drop-in before failing.
+            tracing::warn!(error = %err, "oauth drop-in unreadable — re-seeding");
+            ensure_client::ensure(&state.cfg).map_err(|err| {
+                ApiError::internal("oauth_client_ensure_failed").with_detail(err.to_string())
+            })?;
+            ensure_client::load_secret(&state.cfg)
+                .map_err(|err| {
+                    ApiError::internal("oauth_client_unreadable").with_detail(err.to_string())
+                })?
+                .ok_or_else(|| ApiError::internal("oauth_client_missing"))?
+        }
+    };
 
     let url = format!("{}/api/v1/auth/oauth/token", state.cfg.bigfred_api_base());
     let res = state

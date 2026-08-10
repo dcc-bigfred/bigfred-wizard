@@ -52,11 +52,13 @@ jobs:
             rust_target: aarch64-unknown-linux-musl
             arch_suffix: arm64
             linker_env: CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER
+            cc_env: CC_aarch64_unknown_linux_musl
           - name: amd64
             runner: ubuntu-latest
             rust_target: x86_64-unknown-linux-musl
             arch_suffix: amd64
             linker_env: CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER
+            cc_env: CC_x86_64_unknown_linux_musl
     steps:
       - uses: actions/checkout@v4
 
@@ -94,6 +96,7 @@ jobs:
         run: |
           set -euo pipefail
           export ${{ matrix.linker_env }}=musl-gcc
+          export ${{ matrix.cc_env }}=musl-gcc
           cargo build --release --target ${{ matrix.rust_target }}
           mkdir -p dist
           cp -f "target/${{ matrix.rust_target }}/release/bigfred-wizard" \

@@ -4,6 +4,7 @@
 import type {
   CommandStation,
   CvEntry,
+  LoginLayout,
   Me,
   ProgrammingResult,
   ProgrammingStatus,
@@ -13,6 +14,9 @@ import type {
   TokenResponse,
   User,
   Vehicle,
+  VehicleCreateInput,
+  VehicleTemplate,
+  VehicleUpdateInput,
   WizardConfig,
 } from "./types";
 
@@ -107,6 +111,9 @@ export const api = {
 
   me: () => request<Me>("/api/v1/auth/me"),
 
+  layoutsForLogin: () =>
+    request<LoginLayout[]>("/api/v1/layouts/login", { auth: false }),
+
   users: () => request<User[]>("/api/v1/users"),
 
   createUser: (input: {
@@ -132,10 +139,7 @@ export const api = {
 
   vehicles: (as?: string) => request<Vehicle[]>("/api/v1/vehicles/catalogue", { as }),
 
-  createVehicle: (
-    input: { name: string; kind: string; number?: string; dccAddress: number },
-    as: string,
-  ) =>
+  createVehicle: (input: VehicleCreateInput, as: string) =>
     request<Vehicle>("/api/v1/vehicles", {
       method: "POST",
       as,
@@ -144,7 +148,50 @@ export const api = {
         kind: input.kind,
         number: input.number ?? "",
         dccAddress: input.dccAddress,
+        carrier: input.carrier ?? "",
+        assignment: input.assignment ?? "",
+        epoch: input.epoch ?? "",
+        revisionDate: input.revisionDate ?? null,
       },
+    }),
+
+  updateVehicle: (id: string, input: VehicleUpdateInput, as: string) =>
+    request<Vehicle>(`/api/v1/vehicles/${id}`, {
+      method: "PUT",
+      as,
+      body: {
+        dccAddress: input.dccAddress,
+        dccAddressSet: true,
+        carrier: input.carrier ?? "",
+        assignment: input.assignment ?? "",
+        epoch: input.epoch ?? "",
+        revisionDate: input.revisionDate ?? null,
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.kind !== undefined ? { kind: input.kind } : {}),
+        ...(input.number !== undefined ? { number: input.number } : {}),
+      },
+    }),
+
+  vehicleTemplates: () => request<VehicleTemplate[]>("/api/v1/vehicle-templates"),
+
+  attachVehicleTemplate: (vehicleId: string, templateId: number, as: string) =>
+    request<unknown>(`/api/v1/vehicles/${vehicleId}/functions/attach`, {
+      method: "POST",
+      as,
+      body: { templateId },
+    }),
+
+  addVehicleToLayout: (layoutId: number, vehicleId: string, as: string) =>
+    request<unknown>(`/api/v1/layouts/${layoutId}/vehicles`, {
+      method: "POST",
+      as,
+      body: { vehicleId },
+    }),
+
+  pulseFunction: (address: number, fn: number, as: string, durationMs = 1000) =>
+    request<ProgrammingResult>("/api/v1/wizard/programming/function/pulse", {
+      method: "POST",
+      body: { address, function: fn, durationMs, as },
     }),
 
   startPairing: (
@@ -164,6 +211,14 @@ export const api = {
       method: "DELETE",
       as,
     }),
+
+  unpairSession: (layoutId: number, csId: number, as: string, clientKey?: string) => {
+    const q = clientKey ? `?clientKey=${encodeURIComponent(clientKey)}` : "";
+    return request<void>(
+      `/api/v1/layouts/${layoutId}/command-stations/${csId}/remotes/session${q}`,
+      { method: "DELETE", as },
+    );
+  },
 
   remoteStatus: (layoutId: number, csId: number, as: string) =>
     request<RemoteStatus>(

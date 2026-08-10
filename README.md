@@ -33,13 +33,24 @@ make dev-backend
 make dev-web
 ```
 
-Copy the seeded OAuth client from `.dev-data/etc/bigfred/oauth-clients/bigfred-wizard.json` into BigFred’s `$DATA_DIR/etc/bigfred/oauth-clients/` (or share the same `DATA_DIR`).
+On first start the daemon lazy-creates
+`$BIGFRED_DATA_DIR/etc/bigfred/oauth-clients/bigfred-wizard.json`
+(0640, group `bigfred`). Point BigFred at the **same** data dir so it picks
+up the drop-in (hot-reload), e.g.:
+
+```bash
+BIGFRED_DATA_DIR=$PWD/.dev-data bigfred …
+# or: export BIGFRED_DATA_DIR=/data   # both processes
+```
 
 `bigfredUrl` must be loopback `http://` (no TLS in this binary).
 
+Phone onboarding QR codes: `GET /api/v1/wizard/qr.svg?target=android|bigfred`
+(from `androidAppUrl` / `bigfredPublicUrl` in the JSON config).
+
 ## Hub config
 
-On the device: `/data/etc/bigfred-wizard.json` (seed ships disabled). Overlays (init.d, microinit, microdns) live in [bigfred-os](https://github.com/dcc-bigfred/bigfred-os).
+On the device: `/data/etc/bigfred/wizard/bigfred-wizard.json` (seed ships disabled; `.example` is rewritten beside it on each start). Overlays (init.d, microinit, microdns) live in [bigfred-os](https://github.com/dcc-bigfred/bigfred-os).
 
 ```json
 {
@@ -47,6 +58,7 @@ On the device: `/data/etc/bigfred-wizard.json` (seed ships disabled). Overlays (
   "enabled": true,
   "bigfredUrl": "http://127.0.0.1:8080",
   "bigfredPublicUrl": "http://bigfred.local:8080",
+  "androidAppUrl": "https://play.google.com/store/apps/details?id=…",
   "ssoClientId": "bigfred-wizard",
   "dccPerUser": 25,
   "idleTimeoutSecs": 86400

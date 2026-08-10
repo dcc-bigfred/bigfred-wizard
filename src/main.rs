@@ -14,6 +14,7 @@ mod ensure_client;
 mod error;
 mod oauth_proxy;
 mod programming_api;
+mod qr;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -45,7 +46,7 @@ struct Assets;
     about = "BigFred party kiosk (SSO + wizard flows)"
 )]
 struct Args {
-    /// Config file; defaults to $DATA_DIR/etc/bigfred-wizard.json.
+    /// Config file; defaults to $DATA_DIR/etc/bigfred/wizard/bigfred-wizard.json.
     #[arg(long)]
     config: Option<PathBuf>,
     /// Overrides `http` from the config file.
@@ -58,6 +59,7 @@ pub struct AppState {
     pub cfg: Arc<Config>,
     pub http: reqwest::Client,
     pub dcc: Arc<DccBusClient>,
+    pub pulse_locks: Arc<programming_api::PulseLocks>,
 }
 
 #[tokio::main]
@@ -76,6 +78,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cfg.http = http;
     }
 
+    match config::write_example_config(&config_path) {
+        Ok(path) => tracing::info!(path = %path.display(), "wrote wizard config example"),
+        Err(err) => tracing::warn!(error = %err, "could not write wizard config example"),
+    }
+
     // A missing/unwritable data dir must not stop the daemon: the SPA and
     // the proxy still work, only the SSO exchange will fail loudly.
     match ensure_client::ensure(&cfg) {
@@ -92,6 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cfg: Arc::clone(&cfg),
         http: http.clone(),
         dcc: Arc::new(DccBusClient::new(Arc::clone(&cfg), http)),
+        pulse_locks: Arc::new(programming_api::PulseLocks::default()),
     };
 
     let listener = tokio::net::TcpListener::bind(addr).await?;
@@ -111,6 +119,7 @@ fn router(state: AppState) -> Router {
     let mut app = Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/wizard/config", get(public_config))
+        .route("/api/v1/wizard/qr.svg", get(qr::qr_svg))
         .route("/api/v1/wizard/oauth/token", post(oauth_proxy::token))
         .route(
             "/api/v1/wizard/programming/cvs/read",
@@ -127,6 +136,10 @@ fn router(state: AppState) -> Router {
         .route(
             "/api/v1/wizard/programming/address/set",
             post(programming_api::address_set),
+        )
+        .route(
+            "/api/v1/wizard/programming/function/pulse",
+            post(programming_api::function_pulse),
         )
         .route(
             "/api/v1/wizard/programming/status",

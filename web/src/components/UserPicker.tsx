@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemText from "@mui/material/ListItemText";
-import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
 
 import { api } from "../api/client";
 import type { User } from "../api/types";
+import { ChoiceList, ChoiceOption } from "./ChoiceList";
 import ErrorAlert from "./ErrorAlert";
 
 interface Props {
@@ -77,19 +74,17 @@ export default function UserPicker({ selected, onSelect }: Props) {
       {filtered.length === 0 ? (
         <Typography color="text.secondary">{t("pair.noUsers")}</Typography>
       ) : (
-        <Paper variant="outlined" sx={{ maxHeight: 380, overflow: "auto" }}>
-          <List disablePadding>
-            {filtered.map((user) => (
-              <ListItemButton
-                key={user.id}
-                selected={selected?.id === user.id}
-                onClick={() => onSelect(user)}
-              >
-                <ListItemText primary={user.login} secondary={`DCC: ${formatPool(user)}`} />
-              </ListItemButton>
-            ))}
-          </List>
-        </Paper>
+        <ChoiceList maxHeight={380}>
+          {filtered.map((user) => (
+            <ChoiceOption
+              key={user.id}
+              selected={selected?.id === user.id}
+              onClick={() => onSelect(user)}
+              primary={user.login}
+              secondary={`DCC: ${formatPool(user)}`}
+            />
+          ))}
+        </ChoiceList>
       )}
     </Box>
   );

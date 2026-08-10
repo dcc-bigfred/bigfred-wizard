@@ -1,14 +1,13 @@
 {
   "http": "0.0.0.0:8091",
-  "enabled": true,
+  "enabled": false,
   "bigfredUrl": "http://127.0.0.1:8080",
   "bigfredPublicUrl": "http://bigfred.local:8080",
-  "androidAppUrl": "https://play.google.com/store/apps/details?id=com.dccbigfred.app",
+  "androidAppUrl": "",
   "ssoClientId": "bigfred-wizard",
   "redirectUris": [
-    "http://localhost:8091/auth/callback",
-    "http://localhost:5175/auth/callback",
     "http://bigfred.local:8091/auth/callback",
+    "http://localhost:8091/auth/callback",
     "http://bigfred-wizard.local:8091/auth/callback",
     "http://wizard.local:8091/auth/callback"
   ],

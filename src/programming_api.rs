@@ -7,6 +7,9 @@ use axum::http::HeaderMap;
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 
 use crate::dccbus_client::{
     Ack, CvEntry, Status, FRAME_ADDR_GET, FRAME_ADDR_SET, FRAME_CV_READ, FRAME_CV_WRITE,
@@ -19,6 +22,45 @@ use crate::AppState;
 const MAX_CV: u16 = 1024;
 /// NMRA long-address ceiling.
 const MAX_DCC_ADDRESS: u16 = 10_239;
+const MAX_FUNCTION: u8 = 31;
+const DEFAULT_PULSE_MS: u64 = 1_000;
+const MAX_PULSE_MS: u64 = 5_000;
+/// Cap on the per-key lock registry. The domain is bounded by the layout
+/// roster × function count; this guards against pathological growth.
+const PULSE_LOCK_REGISTRY_CAP: usize = 4_096;
+
+/// Per-`(address, function)` concurrency bound for `function_pulse`. A
+/// second pulse to the same loco/function while one is in flight is
+/// rejected with `429 function_pulse_busy` so ON/OFF frames cannot
+/// interleave and leave a function latched.
+#[derive(Default)]
+pub struct PulseLocks {
+    inner: tokio::sync::Mutex<HashMap<(u16, u8), Arc<Semaphore>>>,
+}
+
+impl PulseLocks {
+    pub async fn acquire(
+        &self,
+        address: u16,
+        function: u8,
+    ) -> Result<tokio::sync::OwnedSemaphorePermit, ApiError> {
+        let sem = {
+            let mut map = self.inner.lock().await;
+            if map.len() >= PULSE_LOCK_REGISTRY_CAP && !map.contains_key(&(address, function)) {
+                return Err(ApiError::internal("pulse_lock_registry_full"));
+            }
+            map.entry((address, function))
+                .or_insert_with(|| Arc::new(Semaphore::new(1)))
+                .clone()
+        };
+        sem.try_acquire_owned().map_err(|_| {
+            ApiError::new(
+                axum::http::StatusCode::TOO_MANY_REQUESTS,
+                "function_pulse_busy",
+            )
+        })
+    }
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +97,19 @@ pub struct AddressSetRequest {
     pub mode: Option<String>,
     #[serde(default)]
     pub verify: Option<bool>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FunctionPulseRequest {
+    pub address: u16,
+    pub function: u8,
+    #[serde(default)]
+    pub duration_ms: Option<u64>,
+    /// Participant login — pulse runs via BigFred Impersonate-As so
+    /// dcc-bus `CanDrive` sees the vehicle owner, not the organizer.
+    #[serde(rename = "as")]
+    pub as_login: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -128,6 +183,52 @@ pub async fn address_set(
         "verify": body.verify.unwrap_or(false),
     });
     run(&state, &token, FRAME_ADDR_SET, payload).await
+}
+
+/// Turns a function on, waits `durationMs` (default 1s), then turns it off.
+/// Ops-mode main track — not programming track. Requires `as` (participant
+/// login) so the dcc-bus drive gate runs as the vehicle owner.
+pub async fn function_pulse(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<FunctionPulseRequest>,
+) -> ApiResult<Json<ProgrammingResponse>> {
+    let token = bearer(&headers)?;
+    validate_address(body.address)?;
+    if body.function > MAX_FUNCTION {
+        return Err(ApiError::bad_request("invalid_function"));
+    }
+    let as_login = body.as_login.trim();
+    if as_login.is_empty() {
+        return Err(ApiError::bad_request("impersonate_required"));
+    }
+    let duration_ms = body
+        .duration_ms
+        .unwrap_or(DEFAULT_PULSE_MS)
+        .clamp(1, MAX_PULSE_MS);
+
+    if !state.cfg.enabled {
+        return Err(ApiError::new(
+            axum::http::StatusCode::FORBIDDEN,
+            "wizard_disabled",
+        ));
+    }
+
+    // Reject a concurrent pulse to the same (address, function) so ON/OFF
+    // frames cannot interleave and leave the function latched.
+    let _permit = state
+        .pulse_locks
+        .acquire(body.address, body.function)
+        .await?;
+
+    let ack = state
+        .dcc
+        .pulse_function(&token, as_login, body.address, body.function, duration_ms)
+        .await?;
+    Ok(Json(ProgrammingResponse {
+        ack,
+        command_station_id: state.dcc.status().command_station_id,
+    }))
 }
 
 /// Reports the socket state plus the station the wizard would program on.
@@ -232,5 +333,42 @@ mod tests {
         assert!(validate_address(0).is_err());
         assert!(validate_address(10_240).is_err());
         assert!(validate_address(3).is_ok());
+    }
+
+    #[test]
+    fn function_pulse_duration_clamps() {
+        assert_eq!(DEFAULT_PULSE_MS, 1_000);
+        assert_eq!(MAX_PULSE_MS, 5_000);
+        // Mirrors the handler's clamp so the contract is locked.
+        assert_eq!(0u64.clamp(1, MAX_PULSE_MS), 1);
+        assert_eq!((MAX_PULSE_MS + 1).clamp(1, MAX_PULSE_MS), MAX_PULSE_MS);
+    }
+
+    #[tokio::test]
+    async fn pulse_locks_reject_concurrent_same_key() {
+        let locks = PulseLocks::default();
+        let _first = locks.acquire(3, 2).await.expect("first acquire");
+        // Second acquire for the same (address, function) must be rejected
+        // so ON/OFF frames cannot interleave.
+        let err = locks.acquire(3, 2).await.expect_err("should be busy");
+        assert_eq!(err.status, axum::http::StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(err.code, "function_pulse_busy");
+    }
+
+    #[tokio::test]
+    async fn pulse_locks_allow_concurrent_different_keys() {
+        let locks = PulseLocks::default();
+        let _a = locks.acquire(3, 0).await.expect("key A");
+        let _b = locks.acquire(3, 1).await.expect("key B");
+        let _c = locks.acquire(4, 0).await.expect("key C");
+    }
+
+    #[tokio::test]
+    async fn pulse_locks_release_on_drop() {
+        let locks = PulseLocks::default();
+        {
+            let _g = locks.acquire(7, 5).await.expect("acquire");
+        }
+        let _again = locks.acquire(7, 5).await.expect("re-acquire after drop");
     }
 }

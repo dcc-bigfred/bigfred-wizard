@@ -16,12 +16,15 @@ import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import ErrorAlert from "../components/ErrorAlert";
 import NumericKeypad from "../components/NumericKeypad";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 
 const PIN_MIN = 4;
 const PIN_MAX = 6;
+
+/** login → pin → pinRepeat → summary → done */
+const FLOW_STEPS = ["login", "pin", "pinRepeat", "summary"] as const;
 
 export default function CreateAccountPage() {
   const { t } = useTranslation();
@@ -37,21 +40,26 @@ export default function CreateAccountPage() {
   const [created, setCreated] = useState<User | null>(null);
 
   const dccPerUser = config?.dccPerUser ?? 0;
-  const loginValid = login.trim().length >= 3;
+  const normalizedLogin = login.trim().toLowerCase();
+  const loginValid = normalizedLogin.length >= 3;
   const pinValid = pin.length >= PIN_MIN && pin.length <= PIN_MAX;
+  const pinRepeatValid = pinRepeat.length >= PIN_MIN && pinRepeat.length <= PIN_MAX;
   const pinsMatch = pin === pinRepeat;
+
+  const canGoNext =
+    step === 0 ? loginValid : step === 1 ? pinValid : step === 2 ? pinRepeatValid && pinsMatch : false;
 
   const submit = async () => {
     setBusy(true);
     setError(null);
     try {
       const user = await api.createUser({
-        login: login.trim().toLowerCase(),
+        login: normalizedLogin,
         pin,
         autoAllocateDccCount: dccPerUser,
       });
       setCreated(user);
-      setStep(3);
+      setStep(4);
     } catch (err) {
       setError(err);
     } finally {
@@ -68,10 +76,52 @@ export default function CreateAccountPage() {
     setStep(0);
   };
 
+  const goBack = () => {
+    setError(null);
+    if (step === 0) {
+      navigate("/");
+      return;
+    }
+    if (step === 2) {
+      setPinRepeat("");
+    }
+    setStep(step - 1);
+  };
+
+  const checkLoginAvailable = async (candidate: string): Promise<boolean> => {
+    const users = await api.users();
+    return !users.some((u) => u.login.toLowerCase() === candidate);
+  };
+
+  const goNext = async () => {
+    setError(null);
+    if (step === 0) {
+      if (!loginValid) return;
+      setBusy(true);
+      try {
+        const available = await checkLoginAvailable(normalizedLogin);
+        if (!available) {
+          setError(new ApiError(409, "login_taken"));
+          return;
+        }
+        setStep(1);
+      } catch (err) {
+        setError(err);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+    if (step === 1) {
+      setPinRepeat("");
+    }
+    setStep(step + 1);
+  };
+
   return (
     <AppShell title={t("account.heading")} showBack>
-      <Stepper activeStep={step} sx={{ mb: 4 }}>
-        {["login", "pin", "summary"].map((key) => (
+      <Stepper activeStep={Math.min(step, FLOW_STEPS.length - 1)} sx={{ mb: 4 }}>
+        {FLOW_STEPS.map((key) => (
           <Step key={key}>
             <StepLabel>{t(`account.steps.${key}`)}</StepLabel>
           </Step>
@@ -88,7 +138,10 @@ export default function CreateAccountPage() {
               helperText={t("account.loginHint")}
               value={login}
               autoFocus
-              onChange={(e) => setLogin(e.target.value.replace(/\s+/g, ""))}
+              onChange={(e) => {
+                setLogin(e.target.value.replace(/\s+/g, ""));
+                setError(null);
+              }}
             />
             {!loginValid && login.length > 0 && (
               <Alert severity="warning" sx={{ mt: 2 }}>
@@ -99,31 +152,48 @@ export default function CreateAccountPage() {
         )}
 
         {step === 1 && (
-          <Stack spacing={3}>
+          <Box>
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              {t("account.rememberCredentials")}
+            </Alert>
             <NumericKeypad
               label={t("account.pinLabel")}
               value={pin}
               onChange={setPin}
               maxLength={PIN_MAX}
               mask
+              allowReveal
               error={pin.length > 0 && !pinValid}
               helperText={pin.length > 0 && !pinValid ? t("account.pinTooShort") : undefined}
             />
+          </Box>
+        )}
+
+        {step === 2 && (
+          <Box>
+            <Alert severity="warning" sx={{ mb: 3 }}>
+              {t("account.rememberCredentials")}
+            </Alert>
             <NumericKeypad
               label={t("account.pinRepeat")}
               value={pinRepeat}
               onChange={setPinRepeat}
               maxLength={PIN_MAX}
               mask
-              error={pinRepeat.length > 0 && !pinsMatch}
+              allowReveal
+              error={pinRepeat.length > 0 && (!pinsMatch || !pinRepeatValid)}
               helperText={
-                pinRepeat.length > 0 && !pinsMatch ? t("account.pinMismatch") : undefined
+                pinRepeat.length > 0 && !pinRepeatValid
+                  ? t("account.pinTooShort")
+                  : pinRepeat.length > 0 && !pinsMatch
+                    ? t("account.pinMismatch")
+                    : undefined
               }
             />
-          </Stack>
+          </Box>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <Box>
             <Typography variant="h6">{login}</Typography>
             <Typography color="text.secondary" sx={{ mt: 1 }}>
@@ -132,7 +202,7 @@ export default function CreateAccountPage() {
           </Box>
         )}
 
-        {step === 3 && created && (
+        {step === 4 && created && (
           <Box>
             <Alert severity="success" sx={{ mb: 2 }}>
               {t("account.created", { login: created.login })}
@@ -153,24 +223,21 @@ export default function CreateAccountPage() {
         )}
 
         <Stack direction="row" spacing={2} sx={{ mt: 4 }} justifyContent="space-between">
-          {step < 3 ? (
+          {step < 4 ? (
             <>
-              <Button
-                variant="outlined"
-                onClick={() => (step === 0 ? navigate("/") : setStep(step - 1))}
-              >
+              <Button variant="outlined" onClick={goBack} disabled={busy}>
                 {step === 0 ? t("app.cancel") : t("app.back")}
               </Button>
-              {step < 2 ? (
+              {step < 3 ? (
                 <Button
                   variant="contained"
-                  disabled={step === 0 ? !loginValid : !pinValid || !pinsMatch}
-                  onClick={() => setStep(step + 1)}
+                  disabled={!canGoNext || busy}
+                  onClick={() => void goNext()}
                 >
                   {t("app.next")}
                 </Button>
               ) : (
-                <Button variant="contained" disabled={busy} onClick={submit}>
+                <Button variant="contained" disabled={busy} onClick={() => void submit()}>
                   {t("account.create")}
                 </Button>
               )}

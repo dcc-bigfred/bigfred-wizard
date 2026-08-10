@@ -1,0 +1,236 @@
+{
+  "app": {
+    "title": "BigFred — Assistent",
+    "subtitle": "Veranstaltungskiosk",
+    "language": "Sprache",
+    "logout": "Abmelden",
+    "back": "Zurück",
+    "next": "Weiter",
+    "finish": "Fertig",
+    "cancel": "Abbrechen",
+    "retry": "Erneut versuchen",
+    "close": "Schließen",
+    "loading": "Laden…",
+    "done": "Fertig",
+    "home": "Hauptmenü",
+    "fullscreen": "Vollbild",
+    "exitFullscreen": "Vollbild beenden",
+    "disabled": "Der Assistent ist deaktiviert",
+    "disabledHint": "Setze \"enabled\": true in /data/etc/bigfred/wizard/bigfred-wizard.json und starte den Dienst bigfred-wizard neu.",
+    "idleLogout": "Nach Inaktivität abgemeldet."
+  },
+  "login": {
+    "heading": "Willkommen zur Veranstaltung",
+    "lead": "Melde dich mit dem Organisator-Konto an, um den Assistenten für Teilnehmer zu starten.",
+    "button": "Als Organisator anmelden",
+    "layout": "Anlage",
+    "layoutHint": "Wähle die Anlage, auf der der Assistent laufen soll.",
+    "systemLayout": "Standard (Werkstatt)",
+    "layoutsError": "Anlagenliste konnte nicht geladen werden.",
+    "enterFullscreen": "Vollbild einschalten",
+    "exitFullscreen": "Vollbild beenden",
+    "callback": "Anmeldung wird abgeschlossen…",
+    "failed": "Anmeldung fehlgeschlagen",
+    "stateMismatch": "Ungültiger Anmeldezustand — bitte erneut versuchen.",
+    "loggedInAs": "Angemeldet als {{login}}"
+  },
+  "home": {
+    "heading": "Was möchtest du tun?",
+    "tiles": {
+      "account": "Neues Konto anlegen",
+      "accountHint": "Login, PIN und DCC-Adresspool",
+      "drive": "Ich möchte fahren — hilf mir, Regler oder Telefon einzurichten",
+      "driveHint": "Telefon, WlanMaus, LongFred, WiFred…",
+      "loco": "Lokomotive einrichten",
+      "locoHint": "DCC-Adresse und Fahrzeugeintrag"
+    }
+  },
+  "drive": {
+    "heading": "Fahren einrichten",
+    "pickDevice": "Womit möchtest du fahren?",
+    "pickDeviceHint": "Tippe auf die große Karte mit deinem Gerät.",
+    "pickStation": "Welche Zentrale?",
+    "startPairing": "Koppeln starten",
+    "alreadyPairedTitle": "Ein Regler ist bereits gekoppelt",
+    "alreadyPairedAsk": "Es sieht so aus, als wäre bereits ein Regler gekoppelt. Möchtest du den bisherigen entkoppeln und einen neuen koppeln?",
+    "keepExisting": "Nein, den jetzigen behalten",
+    "replacePairing": "Ja, entkoppeln und neu koppeln",
+    "waiting": "Warte, bis das Gerät gekoppelt ist…",
+    "pairingRetryHint": "Wenn das Koppeln nicht geklappt hat — keine Panik, gib den Code einfach noch einmal ein.",
+    "paired": "Fertig — das Gerät ist gekoppelt.",
+    "expired": "Zeit abgelaufen. Koppeln wir noch einmal.",
+    "pickLoco": "Mit welcher Lokomotive möchtest du fahren?",
+    "pickLocoHint": "Der Regler kann alle deine Loks steuern. Wähle die, die wir als Nächstes erklären.",
+    "noLocos": "Dieser Teilnehmer hat noch keine Lokomotiven in der Liste.",
+    "locoAddress": "DCC-Adresse: {{address}}",
+    "locoNoAddress": "Keine DCC-Adresse",
+    "howToEnterTitle": "So wählst du die Lok „{{name}}“ am Gerät",
+    "stepper": {
+      "device": "Gerät",
+      "qr": "QR-Code",
+      "drive": "Fahren",
+      "user": "Teilnehmer",
+      "pairing": "Koppeln",
+      "loco": "Lok",
+      "howto": "Anleitung"
+    },
+    "devices": {
+      "android": {
+        "title": "Android-Telefon oder -Tablet",
+        "hint": "Telefone mit Google Play, z. B. LG, Motorola, Samsung, Xiaomi, Sony, Asus, Nokia, Honor, Blackberry"
+      },
+      "otherPhone": {
+        "title": "Anderes Telefon",
+        "hint": "z. B. Apple iPhone"
+      },
+      "wlanmaus": {
+        "title": "Roco WlanMaus",
+        "hint": "Roco- / Fleischmann-Z21-WLAN-Regler"
+      },
+      "railbox": {
+        "title": "App Railbox Railroad Control",
+        "hint": "Fahren per Telefon mit Railbox"
+      },
+      "longfred": {
+        "title": "LongFred",
+        "hint": "Netzwerk-Handregler"
+      },
+      "wifred": {
+        "title": "WiFred",
+        "hint": "Netzwerk-Handregler"
+      }
+    },
+    "phone": {
+      "scanPlayTitle": "Code scannen und BigFred installieren",
+      "scanPlayLead": "Öffne die Kamera oder einen QR-Scanner und richte ihn auf diesen Code — er öffnet Google Play.",
+      "scanWebTitle": "Code scannen und BigFred öffnen",
+      "scanWebLead": "Öffne die Kamera oder einen QR-Scanner und richte ihn auf diesen Code — er öffnet BigFred im Browser.",
+      "qrAlt": "QR-Code",
+      "androidUrlMissing": "Keine Android-App-URL in der Konfiguration (androidAppUrl). Bitte den Operator /data/etc/bigfred/wizard/bigfred-wizard.json ergänzen lassen.",
+      "driveTitle": "So fährst du in BigFred",
+      "driveSteps": {
+        "1": "Öffne die BigFred-App oder -Website auf dem Telefon.",
+        "2": "Melde dich mit Login und PIN des Teilnehmers an (wie bei der Kontoanlage).",
+        "3": "Auf dem Startbildschirm die Fahrregler / Lokomotiven öffnen.",
+        "4": "Wähle deine Lok aus der Liste und fahre mit den Reglern auf dem Bildschirm."
+      }
+    },
+    "steps": {
+      "powerOnWlanmaus": "Schalte die WlanMaus mit der Taste OK (Light / OK) ein.",
+      "openAnyLoco": "Öffne eine beliebige Lok (beliebige Adresse) mit den Pfeiltasten.",
+      "powerOnHandset": "Schalte das Gerät ein.",
+      "openPairingLoco": "Öffne am Gerät die Kopplungs-Lok.",
+      "openApp": "Öffne die App {{app}}.",
+      "connectBigFred": "Verbinde dich mit dem BigFred-Server im Club-WLAN.",
+      "typeDeviceName": "Setze den Gerätenamen auf: <strong>{{code}}</strong>",
+      "orPairingLoco": "Oder wähle die Lok „Pair with BigFred“ und drücke diese Tasten:",
+      "pressWlanmausKey": "Drücke Taste <strong>{{key}}</strong> (entspricht {{f}}).",
+      "pressF": "Drücke Taste <strong>{{f}}</strong>."
+    },
+    "howToEnter": {
+      "wlanmaus": {
+        "1": "An der WlanMaus zur Lokauswahl gehen (Bibliothek oder Adressmodus).",
+        "2": "Adresse {{address}} ({{name}}) eingeben oder wählen.",
+        "3": "Mit OK bestätigen — du kannst fahren."
+      },
+      "railbox": {
+        "1": "In Railbox die Lokliste öffnen.",
+        "2": "Lok mit Adresse {{address}} ({{name}}) hinzufügen oder wählen.",
+        "3": "Mit dieser Lok fahren."
+      },
+      "longfred": {
+        "1": "Am LongFred die Lokauswahl öffnen.",
+        "2": "Adresse {{address}} ({{name}}) einstellen.",
+        "3": "Bestätigen und fahren."
+      },
+      "wifred": {
+        "1": "Am WiFred die Lokauswahl öffnen.",
+        "2": "Adresse {{address}} ({{name}}) einstellen.",
+        "3": "Bestätigen und fahren."
+      },
+      "withrottle": {
+        "1": "In der App die BigFred-Lokliste öffnen.",
+        "2": "Lok mit Adresse {{address}} ({{name}}) wählen.",
+        "3": "Fahrregler öffnen und fahren."
+      }
+    }
+  },
+  "account": {
+    "heading": "Neues Teilnehmerkonto",
+    "steps": {
+      "login": "Login",
+      "pin": "PIN",
+      "pinRepeat": "PIN wiederholen",
+      "summary": "Zusammenfassung"
+    },
+    "loginLabel": "Teilnehmer-Login",
+    "loginHint": "Kleinbuchstaben, ohne Leerzeichen, z. B. tom",
+    "pinLabel": "PIN (4–6 Ziffern)",
+    "pinRepeat": "PIN wiederholen",
+    "rememberCredentials": "Merke dir Login und PIN — damit meldest du dich in der Telefon-App an.",
+    "showPin": "PIN anzeigen",
+    "hidePin": "PIN verbergen",
+    "pinMismatch": "Die PINs stimmen nicht überein.",
+    "pinTooShort": "Die PIN muss 4 bis 6 Ziffern haben.",
+    "loginTooShort": "Das Login braucht mindestens 3 Zeichen.",
+    "summaryLead": "Das Konto erhält einen Pool von {{count}} DCC-Adressen.",
+    "create": "Konto anlegen",
+    "created": "Konto {{login}} angelegt.",
+    "pool": "Zugewiesene DCC-Adressen",
+    "another": "Weiteres Konto anlegen"
+  },
+  "pair": {
+    "pickUser": "Für wen richten wir das ein?",
+    "searchUser": "Teilnehmer suchen",
+    "noUsers": "Noch keine Konten — zuerst ein Teilnehmerkonto anlegen."
+  },
+  "loco": {
+    "heading": "Lokomotive einrichten",
+    "steps": {
+      "user": "Besitzer",
+      "loco": "Lok",
+      "address": "DCC-Adresse",
+      "program": "Programmierung"
+    },
+    "noDccPool": "Leider hast du keinen DCC-Adresspool. Bitte den Anlagen-Administrator fragen.",
+    "pickLoco": "Welche Lok richten wir ein?",
+    "pickLocoHint": "Wähle aus der Liste oder füge eine neue hinzu, wenn sie fehlt.",
+    "addNewLoco": "Meine Lok steht nicht auf dieser Liste — ich muss sie hinzufügen",
+    "detailsTitle": "Daten des neuen Fahrzeugs",
+    "vehicleName": "Name",
+    "epoch": "Epoche (optional)",
+    "epochUnset": "Keine Epoche",
+    "carrier": "Betreiber (optional)",
+    "assignment": "Einsatz (optional)",
+    "revisionDate": "Revisionsdatum (optional)",
+    "addressExplain": "Jeder hat eine Liste von DCC-Adressen für die eigenen Fahrzeuge — hier sind deine. Dein neues Fahrzeug erhält die DCC-Nummer <strong>{{address}}</strong>",
+    "dccAddress": "DCC-Nummer",
+    "functionListHeading": "Fahrzeug-Funktionsliste",
+    "functionListDescribe": "Optional kannst du eine Funktionsliste von einem anderen Fahrzeug übernehmen, damit in der BigFred-App auf dem Telefon oder am LongFred Funktionsnamen und Icons erscheinen. Dieser Schritt ist optional — dein Modell steht vielleicht nicht auf der Liste; wähle dann „Basic“.",
+    "functionList": "Fahrzeug-Funktionsliste",
+    "functionListChangeOptional": "(Optional) Fahrzeug-Funktionsliste ändern",
+    "poolHint": "Dein Pool: {{ranges}}",
+    "outsidePool": "Die Adresse muss in deinem DCC-Pool liegen.",
+    "locoAddress": "DCC-Adresse: {{address}}",
+    "locoNoAddress": "Keine DCC-Adresse",
+    "putOnTrackProgram": "Stelle die Lok/das Fahrzeug auf das Programmiergleis und tippe Programmieren.",
+    "program": "Programmieren",
+    "programSuccess": "Adresse {{address}} in den Decoder geschrieben. Fahrzeug „{{name}}“ ist bereit.",
+    "testF2": "Test: F2 einschalten",
+    "testF2Hint": "F2 läuft auf dem versorgten Hauptgleis (Ops). Stelle die Lok vom Programmiergleis auf ein versorgtes Gleis und tippe — F2 bleibt 1 Sekunde an.",
+    "programmingOffline": "Programmierung nicht verfügbar: keine Verbindung zu dcc-bus."
+  },
+  "errors": {
+    "generic": "Etwas ist schiefgelaufen.",
+    "unauthorized": "Sitzung abgelaufen — bitte erneut anmelden.",
+    "dcc_bus_unavailable": "Keine Verbindung zur Zentrale (dcc-bus). Öffne die Anlage in BigFred und versuche es erneut.",
+    "no_programming_station": "Keine Zentrale hat einen Handregler-Server aktiv (Z21 / WiThrottle).",
+    "programming_timeout": "Die Zentrale hat nicht rechtzeitig geantwortet.",
+    "wizard_disabled": "Der Assistent ist in der Konfiguration deaktiviert.",
+    "login_taken": "Dieses Login ist bereits vergeben.",
+    "dcc_pool_exhausted": "Keine freien DCC-Adressen mehr im Pool.",
+    "invalid_address": "Ungültige DCC-Adresse.",
+    "bigfred_unreachable": "Der BigFred-Server ist nicht erreichbar.",
+    "qr_url_unset": "Keine URL für diesen QR-Code konfiguriert."
+  }
+}
