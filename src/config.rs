@@ -21,6 +21,7 @@ pub const WIZARD_DEFAULT_PORT: u16 = 8091;
 /// drift away from the address the wizard actually binds.
 pub const BUILTIN_REDIRECT_URIS: &[&str] = &[
     "http://bigfred.local:8091/auth/callback",
+    "http://bigfred.local:5175/auth/callback",
     "http://bigfred-wizard.local:8091/auth/callback",
     "http://wizard.local:8091/auth/callback",
 ];
@@ -63,6 +64,40 @@ pub struct Config {
     pub idle_timeout_secs: u64,
     /// Handset protocol preselected in the pairing flows.
     pub default_remote_protocol: String,
+    /// WiFi SSID written into commissioned handsets (wireless-programmer).
+    #[serde(default)]
+    pub wifi_ssid: String,
+    /// WiFi PSK for commissioned handsets. Empty = open network.
+    #[serde(default)]
+    pub wifi_psk: String,
+    /// wiThrottle server host written into WiFred (and similar).
+    #[serde(default = "default_throttle_host")]
+    pub throttle_server_host: String,
+    /// wiThrottle server port.
+    #[serde(default = "default_throttle_port")]
+    pub throttle_server_port: u16,
+    /// Prefer mDNS discovery of the wiThrottle server on the device.
+    #[serde(default = "default_true")]
+    pub throttle_server_automatic: bool,
+    /// Path to the wireless-programmer Unix socket.
+    #[serde(default = "default_wireless_socket")]
+    pub wireless_programmer_socket: String,
+}
+
+fn default_throttle_host() -> String {
+    "bigfred.local".to_string()
+}
+
+fn default_throttle_port() -> u16 {
+    12090
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_wireless_socket() -> String {
+    "/data/run/wireless-programmer/wireless-programmer.sock".to_string()
 }
 
 impl Default for Config {
@@ -87,12 +122,18 @@ impl Default for Config {
             dcc_per_user: 25,
             idle_timeout_secs: 86_400,
             default_remote_protocol: "z21".to_string(),
+            wifi_ssid: String::new(),
+            wifi_psk: String::new(),
+            throttle_server_host: default_throttle_host(),
+            throttle_server_port: default_throttle_port(),
+            throttle_server_automatic: default_true(),
+            wireless_programmer_socket: default_wireless_socket(),
         }
     }
 }
 
-/// The subset of the config the browser is allowed to see. The client
-/// secret never leaves the daemon.
+/// The subset of the config the browser is allowed to see. Secrets
+/// (Wi‑Fi PSK, OAuth client secret) never leave the daemon.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicConfig {
@@ -104,6 +145,13 @@ pub struct PublicConfig {
     pub sso_client_id: String,
     pub redirect_uris: Vec<String>,
     pub default_remote_protocol: String,
+    /// SSID written into commissioned handsets (empty until configured).
+    pub wifi_ssid: String,
+    /// Whether a Wi‑Fi PSK is set — never the raw secret.
+    pub wifi_psk_configured: bool,
+    pub throttle_server_host: String,
+    pub throttle_server_port: u16,
+    pub throttle_server_automatic: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -168,6 +216,11 @@ impl Config {
             sso_client_id: self.sso_client_id.clone(),
             redirect_uris: self.redirect_uris.clone(),
             default_remote_protocol: self.default_remote_protocol.clone(),
+            wifi_ssid: self.wifi_ssid.trim().to_string(),
+            wifi_psk_configured: !self.wifi_psk.trim().is_empty(),
+            throttle_server_host: self.throttle_server_host.trim().to_string(),
+            throttle_server_port: self.throttle_server_port,
+            throttle_server_automatic: self.throttle_server_automatic,
         }
     }
 
@@ -249,6 +302,28 @@ pub fn example_config_path(config_path: &Path) -> PathBuf {
 /// `config_path`. Does not touch the live config or the OAuth drop-in.
 pub fn write_example_config(config_path: &Path) -> Result<PathBuf, ConfigError> {
     let path = example_config_path(config_path);
+    write_config_json(&path, &Config::default())?;
+    Ok(path)
+}
+
+/// Bootstrap at start: rewrite the sibling `.example`, seed the live file from
+/// defaults when missing, then load (and merge builtin redirect URIs).
+pub fn ensure_config_files(config_path: &Path) -> Result<Config, ConfigError> {
+    match write_example_config(config_path) {
+        Ok(path) => tracing::info!(path = %path.display(), "wrote wizard config example"),
+        Err(err) => tracing::warn!(error = %err, "could not write wizard config example"),
+    }
+    if !config_path.exists() {
+        write_config_json(config_path, &Config::default())?;
+        tracing::info!(
+            path = %config_path.display(),
+            "seeded wizard config from defaults"
+        );
+    }
+    Config::load(config_path)
+}
+
+fn write_config_json(path: &Path, cfg: &Config) -> Result<(), ConfigError> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|source| ConfigError::Write {
             path: parent.to_path_buf(),
@@ -256,16 +331,16 @@ pub fn write_example_config(config_path: &Path) -> Result<PathBuf, ConfigError> 
         })?;
     }
     let mut body =
-        serde_json::to_vec_pretty(&Config::default()).map_err(|source| ConfigError::Serialize {
-            path: path.clone(),
+        serde_json::to_vec_pretty(cfg).map_err(|source| ConfigError::Serialize {
+            path: path.to_path_buf(),
             source,
         })?;
     body.push(b'\n');
-    std::fs::write(&path, body).map_err(|source| ConfigError::Write {
-        path: path.clone(),
+    std::fs::write(path, body).map_err(|source| ConfigError::Write {
+        path: path.to_path_buf(),
         source,
     })?;
-    Ok(path)
+    Ok(())
 }
 
 /// `$DATA_DIR/etc/bigfred/oauth-clients` — BigFred's drop-in directory.
@@ -351,6 +426,34 @@ mod tests {
     }
 
     #[test]
+    fn public_exposes_wifi_ssid_but_not_psk() {
+        let cfg = Config {
+            wifi_ssid: "  test-ssid  ".into(),
+            wifi_psk: "test123".into(),
+            ..Config::default()
+        };
+        let pub_cfg = cfg.public();
+        assert_eq!(pub_cfg.wifi_ssid, "test-ssid");
+        assert!(pub_cfg.wifi_psk_configured);
+        let json = serde_json::to_value(&pub_cfg).unwrap();
+        assert!(json.get("wifiPsk").is_none());
+        assert_eq!(json["wifiPskConfigured"], true);
+        assert_eq!(json["wifiSsid"], "test-ssid");
+        assert_eq!(json["throttleServerHost"], "bigfred.local");
+        assert_eq!(json["throttleServerPort"], 12090);
+    }
+
+    #[test]
+    fn public_marks_psk_absent_when_empty() {
+        let cfg = Config {
+            wifi_ssid: "open-net".into(),
+            wifi_psk: "   ".into(),
+            ..Config::default()
+        };
+        assert!(!cfg.public().wifi_psk_configured);
+    }
+
+    #[test]
     fn qr_url_targets() {
         let cfg = Config {
             android_app_url: "https://play.google.com/store/apps/details?id=x".into(),
@@ -387,6 +490,29 @@ mod tests {
         for uri in BUILTIN_REDIRECT_URIS {
             assert!(parsed.redirect_uris.iter().any(|u| u == uri));
         }
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn ensure_config_files_seeds_live_and_example() {
+        let tmp = std::env::temp_dir().join(format!("wizard-cfg-ens-{}", uuid::Uuid::new_v4()));
+        let cfg_path = tmp
+            .join("etc")
+            .join("bigfred")
+            .join("wizard")
+            .join("bigfred-wizard.json");
+        assert!(!cfg_path.exists());
+        let cfg = ensure_config_files(&cfg_path).expect("ensure");
+        assert!(cfg_path.exists());
+        assert!(example_config_path(&cfg_path).exists());
+        assert!(!cfg.enabled);
+        assert_eq!(cfg.throttle_server_port, 12090);
+        // Second call must not overwrite an existing live file.
+        let mut edited = Config::default();
+        edited.enabled = true;
+        write_config_json(&cfg_path, &edited).unwrap();
+        let reloaded = ensure_config_files(&cfg_path).expect("ensure again");
+        assert!(reloaded.enabled);
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }

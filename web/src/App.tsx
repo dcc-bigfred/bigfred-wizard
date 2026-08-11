@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AppShell from "./components/AppShell";
+import AboutPage from "./pages/AboutPage";
 import CallbackPage from "./pages/CallbackPage";
 import CreateAccountPage from "./pages/CreateAccountPage";
 import ConfigureLocoPage from "./pages/ConfigureLocoPage";
@@ -46,6 +47,7 @@ function Router() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<CallbackPage />} />
+      <Route path="/about" element={<AboutPage />} />
       <Route
         path="/"
         element={

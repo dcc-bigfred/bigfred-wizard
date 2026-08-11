@@ -54,7 +54,7 @@ async fn forward(state: AppState, req: Request<Body>) -> Result<Response, ApiErr
         .await
         .map_err(|err| ApiError::bad_request("body_too_large").with_detail(err.to_string()))?;
 
-    let mut url = format!("{}{}", state.cfg.bigfred_api_base(), path);
+    let mut url = format!("{}{}", state.config().await.bigfred_api_base(), path);
     if let Some(query) = parts.uri.query() {
         url.push('?');
         url.push_str(query);

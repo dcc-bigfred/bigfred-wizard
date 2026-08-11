@@ -16,8 +16,9 @@
     "fullscreen": "Pełny ekran",
     "exitFullscreen": "Zamknij pełny ekran",
     "disabled": "Kreator jest wyłączony",
-    "disabledHint": "Ustaw \"enabled\": true w /data/etc/bigfred/wizard/bigfred-wizard.json i zrestartuj usługę bigfred-wizard.",
-    "idleLogout": "Wylogowano po okresie bezczynności."
+    "disabledHint": "Ustaw \"enabled\": true w /data/etc/bigfred/wizard/bigfred-wizard.json (zmiany działają bez restartu).",
+    "idleLogout": "Wylogowano po okresie bezczynności.",
+    "about": "Informacje diagnostyczne"
   },
   "login": {
     "heading": "Witamy na imprezie",
@@ -93,11 +94,82 @@
       },
       "longfred": {
         "title": "LongFred",
-        "hint": "Manipulator sieciowy"
+        "hint": "Fizyczny manipulator do jazdy"
       },
       "wifred": {
-        "title": "WiFred",
-        "hint": "Manipulator sieciowy"
+        "title": "WiFred (Heiko Rosemann)",
+        "hint": "Fizyczny manipulator do jazdy"
+      },
+      "withrottle-advanced": {
+        "title": "Inna aplikacja WiThrottle (zaawansowane)",
+        "hint": "Parowanie przez sieć WiThrottle — dla zaawansowanych"
+      }
+    },
+    "program": {
+      "steps": {
+        "user": "Kto jedzie",
+        "pin": "Kod",
+        "enterPairing": "Włącz pilota",
+        "scan": "Znajdź pilota",
+        "pickRoster": "Lokomotywy",
+        "programming": "Programowanie",
+        "done": "Gotowe"
+      },
+      "whoDrives": "Kto będzie jeździć tym pilotem?",
+      "pinWifredTitle": "Wpisz swój 6-cyfrowy kod parowania BigFred",
+      "pinWifredHint": "Ten sam kod, który dostałeś przy zakładaniu konta.",
+      "pinLongfredTitle": "Wpisz swój kod PIN BigFred",
+      "pinLongfredHint": "Ten sam PIN, którym logujesz się do BigFred.",
+      "pinContinue": "Dalej",
+      "enterPairingTitle": "Włącz pilota w trybie parowania",
+      "enterPairingContinue": "Dalej, szukam pilota",
+      "wifredEnter": {
+        "1": "Włącz swojego pilota WiFred (przesuń włącznik lokomotywy w górę).",
+        "2": "Przytrzymaj żółty przycisk Shift przez 5 sekund, aż czerwona dioda zacznie migać."
+      },
+      "pickVariantTitle": "Jaki masz model LongFred?",
+      "longfredVariants": {
+        "markwtech": {
+          "title": "LongFred (markwtech)",
+          "steps": {
+            "1": "Na włączonym pilocie przytrzymaj jednocześnie przycisk * (Menu) i czerwony przycisk Stop przez 8 sekund, aż dioda zacznie migać."
+          }
+        }
+      },
+      "scanTitle": "Znaleziono piloty w pobliżu",
+      "scanEmpty": "Nie znaleziono pilota. Upewnij się, że pilot jest włączony w trybie parowania i spróbuj ponownie.",
+      "scanRetry": "Szukaj ponownie",
+      "scanBusy": "Szukam pilotów…",
+      "rosterTitle": "Wybierz lokomotywy, którymi chcesz jeździć",
+      "rosterHint": "Wybierz do {{max}} lokomotyw. Kolejność wyboru to kolejność na pilocie (1, 2, 3…).",
+      "rosterMaxReached": "Możesz wybrać maksymalnie {{max}} lokomotyw na tym pilocie.",
+      "rosterEmpty": "Nie masz jeszcze żadnych lokomotyw. Najpierw dodaj je w kreatorze lokomotyw.",
+      "rosterContinue": "Zaprogramuj pilota",
+      "programmingTitle": "Programuję pilota…",
+      "programmingStates": {
+        "queued": "Przygotowanie…",
+        "joining": "Łączenie z pilotem…",
+        "probing": "Odczyt ustawień…",
+        "writing": "Zapisywanie ustawień…",
+        "verifying": "Sprawdzanie…",
+        "restarting": "Prawie gotowe…",
+        "done": "Gotowe!",
+        "failed": "Nie udało się",
+        "cancelled": "Anulowano"
+      },
+      "doneTitle": "Twój pilot jest gotowy!",
+      "doneLead": "Możesz teraz jeździć.",
+      "doneHome": "Wróć do menu",
+      "failedTitle": "Nie udało się zaprogramować pilota",
+      "failedRetry": "Spróbuj ponownie",
+      "wifiMissing": "Sieć Wi‑Fi nie jest skonfigurowana w kreatorze. Poproś operatora o uzupełnienie ustawień.",
+      "errors": {
+        "busy": "Pilot jest zajęty, spróbuj za chwilę.",
+        "noCandidates": "Nie znaleziono pilota.",
+        "radioBlocked": "Radio jest zablokowane. Poproś operatora o pomoc.",
+        "wireless_unavailable": "Usługa programowania jest niedostępna. Poproś operatora o pomoc.",
+        "forbidden": "Brak uprawnień do programowania pilota.",
+        "generic": "Coś poszło nie tak. Spróbuj ponownie."
       }
     },
     "phone": {
@@ -167,6 +239,7 @@
     "loginHint": "Małe litery, bez spacji, np. tomek",
     "pinLabel": "PIN (4–6 cyfr)",
     "pinRepeat": "Powtórz PIN",
+    "pinAdvice": "Proste hasło liczbowe, które zapamiętasz np. rok urodzenia Twojej Żony albo Dziecka. Będzie potrzebne Ci do zaprogramowania pilota czy używania aplikacji na telefon",
     "rememberCredentials": "Zapamiętaj login i PIN — pozwolą Ci się zalogować w aplikacji na telefonie.",
     "showPin": "Pokaż PIN",
     "hidePin": "Ukryj PIN",
@@ -220,6 +293,54 @@
     "testF2Hint": "Gdyby testowanie F2 nie działało na torze programującym, spróbuj przenieść lokomotywę na zwykły tor - na makietę.",
     "programmingOffline": "Programowanie niedostępne: brak połączenia z dcc-bus."
   },
+  "about": {
+    "open": "Informacje diagnostyczne",
+    "heading": "Informacje diagnostyczne",
+    "refresh": "Odśwież",
+    "wizard": "Kreator",
+    "bigfred": "BigFred",
+    "dccbus": "dcc-bus",
+    "wifi": "Wi‑Fi / wiThrottle",
+    "wireless": "wireless-programmer",
+    "wirelessHello": "hello",
+    "wirelessLink": "link-status",
+    "enabled": "Włączony",
+    "bigfredUrl": "Publiczny URL BigFred",
+    "androidAppUrl": "URL aplikacji Android",
+    "ssoClientId": "SSO client id",
+    "defaultProtocol": "Domyślny protokół",
+    "redirectUris": "Redirect URI",
+    "version": "Wersja",
+    "tagCommit": "Tag commit",
+    "buildCommit": "Build commit",
+    "buildTime": "Czas buildu",
+    "commit": "Commit",
+    "connected": "Połączono",
+    "disconnected": "Brak połączenia",
+    "commandStation": "Centrala",
+    "progOutput": "Wyjście programujące",
+    "reconnects": "Ponownych połączeń",
+    "lastError": "Ostatni błąd",
+    "driveSocket": "Sesja F2 (drive)",
+    "driveAs": "F2 jako użytkownik",
+    "wifiSsid": "SSID",
+    "wifiPsk": "Hasło Wi‑Fi",
+    "pskSet": "Ustawione",
+    "pskOpen": "Brak (sieć otwarta)",
+    "throttleHost": "Host wiThrottle",
+    "throttlePort": "Port wiThrottle",
+    "throttleAuto": "Automatyczne (mDNS)",
+    "drivers": "Sterowniki",
+    "interface": "Interfejs",
+    "busy": "Zajęty",
+    "rfkill": "rfkill",
+    "rfkillOk": "Odblokowany",
+    "rfkillBlocked": "Zablokowany",
+    "yes": "Tak",
+    "no": "Nie",
+    "none": "Brak",
+    "unset": "Nieustawione"
+  },
   "errors": {
     "generic": "Coś poszło nie tak.",
     "unauthorized": "Sesja wygasła — zaloguj się ponownie.",
@@ -231,6 +352,13 @@
     "dcc_pool_exhausted": "Brak wolnych adresów DCC w puli.",
     "invalid_address": "Nieprawidłowy adres DCC.",
     "bigfred_unreachable": "Serwer BigFred jest niedostępny.",
-    "qr_url_unset": "Brak adresu do kodu QR w konfiguracji."
+    "qr_url_unset": "Brak adresu do kodu QR w konfiguracji.",
+    "busy": "Pilot jest zajęty, spróbuj za chwilę.",
+    "noCandidates": "Nie znaleziono pilota.",
+    "radioBlocked": "Radio jest zablokowane. Poproś operatora o pomoc.",
+    "wireless_unavailable": "Usługa programowania jest niedostępna. Poproś operatora o pomoc.",
+    "wireless_timeout": "Usługa programowania nie odpowiedziała na czas.",
+    "wifi_not_configured": "Sieć Wi‑Fi nie jest skonfigurowana w kreatorze. Poproś operatora o uzupełnienie ustawień.",
+    "forbidden": "Brak uprawnień do programowania pilota."
   }
 }

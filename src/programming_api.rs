@@ -207,7 +207,7 @@ pub async fn function_pulse(
         .unwrap_or(DEFAULT_PULSE_MS)
         .clamp(1, MAX_PULSE_MS);
 
-    if !state.cfg.enabled {
+    if !state.config().await.enabled {
         return Err(ApiError::new(
             axum::http::StatusCode::FORBIDDEN,
             "wizard_disabled",
@@ -247,13 +247,54 @@ pub async fn status(State(state): State<AppState>, headers: HeaderMap) -> ApiRes
     Ok(Json(status))
 }
 
+/// Warms the dcc-bus WebSocket if it is not already connected.
+pub async fn connect(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> ApiResult<Json<Status>> {
+    let token = bearer(&headers)?;
+    if !state.config().await.enabled {
+        return Err(ApiError::new(
+            axum::http::StatusCode::FORBIDDEN,
+            "wizard_disabled",
+        ));
+    }
+    Ok(Json(state.dcc.ensure_connected(&token).await?))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DriveConnectRequest {
+    /// Participant login to impersonate on the drive socket.
+    #[serde(rename = "as")]
+    pub as_login: String,
+}
+
+/// Warms (or switches) the impersonated drive WebSocket for F2 / ops track.
+pub async fn drive_connect(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<DriveConnectRequest>,
+) -> ApiResult<Json<Status>> {
+    let token = bearer(&headers)?;
+    if !state.config().await.enabled {
+        return Err(ApiError::new(
+            axum::http::StatusCode::FORBIDDEN,
+            "wizard_disabled",
+        ));
+    }
+    Ok(Json(
+        state.dcc.ensure_drive(&token, &body.as_login).await?,
+    ))
+}
+
 async fn run(
     state: &AppState,
     token: &str,
     frame: &str,
     payload: serde_json::Value,
 ) -> ApiResult<Json<ProgrammingResponse>> {
-    if !state.cfg.enabled {
+    if !state.config().await.enabled {
         return Err(ApiError::new(
             axum::http::StatusCode::FORBIDDEN,
             "wizard_disabled",

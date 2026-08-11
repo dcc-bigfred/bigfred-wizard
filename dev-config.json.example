@@ -15,5 +15,11 @@
   "corsOrigins": [],
   "dccPerUser": 25,
   "idleTimeoutSecs": 86400,
-  "defaultRemoteProtocol": "z21"
+  "defaultRemoteProtocol": "z21",
+  "wifiSsid": "",
+  "wifiPsk": "",
+  "throttleServerHost": "bigfred.local",
+  "throttleServerPort": 12090,
+  "throttleServerAutomatic": true,
+  "wirelessProgrammerSocket": "/data/run/wireless-programmer/wireless-programmer.sock"
 }

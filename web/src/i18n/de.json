@@ -16,8 +16,9 @@
     "fullscreen": "Vollbild",
     "exitFullscreen": "Vollbild beenden",
     "disabled": "Der Assistent ist deaktiviert",
-    "disabledHint": "Setze \"enabled\": true in /data/etc/bigfred/wizard/bigfred-wizard.json und starte den Dienst bigfred-wizard neu.",
-    "idleLogout": "Nach Inaktivität abgemeldet."
+    "disabledHint": "Setze \"enabled\": true in /data/etc/bigfred/wizard/bigfred-wizard.json (Änderungen gelten ohne Neustart).",
+    "idleLogout": "Nach Inaktivität abgemeldet.",
+    "about": "Diagnostische Informationen"
   },
   "login": {
     "heading": "Willkommen zur Veranstaltung",
@@ -93,11 +94,82 @@
       },
       "longfred": {
         "title": "LongFred",
-        "hint": "Netzwerk-Handregler"
+        "hint": "Physischer Handregler"
       },
       "wifred": {
-        "title": "WiFred",
-        "hint": "Netzwerk-Handregler"
+        "title": "WiFred (Heiko Rosemann)",
+        "hint": "Physischer Handregler"
+      },
+      "withrottle-advanced": {
+        "title": "Andere WiThrottle-App (erweitert)",
+        "hint": "Kopplung über WiThrottle — für Fortgeschrittene"
+      }
+    },
+    "program": {
+      "steps": {
+        "user": "Wer fährt",
+        "pin": "Code",
+        "enterPairing": "Regler einschalten",
+        "scan": "Regler finden",
+        "pickRoster": "Loks",
+        "programming": "Programmieren",
+        "done": "Fertig"
+      },
+      "whoDrives": "Wer soll mit diesem Regler fahren?",
+      "pinWifredTitle": "Gib deinen 6-stelligen BigFred-Kopplungscode ein",
+      "pinWifredHint": "Derselbe Code wie bei der Kontoanlage.",
+      "pinLongfredTitle": "Gib deinen BigFred-PIN ein",
+      "pinLongfredHint": "Derselbe PIN wie bei der BigFred-Anmeldung.",
+      "pinContinue": "Weiter",
+      "enterPairingTitle": "Regler in den Kopplungsmodus bringen",
+      "enterPairingContinue": "Weiter, Regler suchen",
+      "wifredEnter": {
+        "1": "Schalte deinen WiFred ein (Lok-Schalter nach oben).",
+        "2": "Halte die gelbe Shift-Taste 5 Sekunden, bis die rote LED blinkt."
+      },
+      "pickVariantTitle": "Welches LongFred-Modell hast du?",
+      "longfredVariants": {
+        "markwtech": {
+          "title": "LongFred (markwtech)",
+          "steps": {
+            "1": "Am eingeschalteten Regler * (Menü) und die rote Stop-Taste 8 Sekunden gleichzeitig halten, bis eine LED blinkt."
+          }
+        }
+      },
+      "scanTitle": "Regler in der Nähe gefunden",
+      "scanEmpty": "Kein Regler gefunden. Stelle sicher, dass er im Kopplungsmodus ist, und versuche es erneut.",
+      "scanRetry": "Erneut suchen",
+      "scanBusy": "Suche Regler…",
+      "rosterTitle": "Wähle die Loks, mit denen du fahren willst",
+      "rosterHint": "Wähle bis zu {{max}} Loks. Die Reihenfolge ist die Reihenfolge am Regler (1, 2, 3…).",
+      "rosterMaxReached": "Auf diesem Regler sind höchstens {{max}} Loks möglich.",
+      "rosterEmpty": "Du hast noch keine Loks. Lege sie zuerst im Lok-Assistenten an.",
+      "rosterContinue": "Regler programmieren",
+      "programmingTitle": "Regler wird programmiert…",
+      "programmingStates": {
+        "queued": "Vorbereitung…",
+        "joining": "Verbindung zum Regler…",
+        "probing": "Einstellungen lesen…",
+        "writing": "Einstellungen speichern…",
+        "verifying": "Prüfen…",
+        "restarting": "Gleich fertig…",
+        "done": "Fertig!",
+        "failed": "Fehlgeschlagen",
+        "cancelled": "Abgebrochen"
+      },
+      "doneTitle": "Dein Regler ist bereit!",
+      "doneLead": "Du kannst jetzt fahren.",
+      "doneHome": "Zurück zum Menü",
+      "failedTitle": "Regler konnte nicht programmiert werden",
+      "failedRetry": "Erneut versuchen",
+      "wifiMissing": "WLAN ist im Assistenten nicht konfiguriert. Bitte den Operator die Einstellungen ergänzen lassen.",
+      "errors": {
+        "busy": "Der Regler ist beschäftigt — bitte gleich nochmal versuchen.",
+        "noCandidates": "Kein Regler gefunden.",
+        "radioBlocked": "Funk ist blockiert. Bitte den Operator um Hilfe bitten.",
+        "wireless_unavailable": "Programmierung ist nicht verfügbar. Bitte den Operator um Hilfe bitten.",
+        "forbidden": "Keine Berechtigung zum Programmieren.",
+        "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
       }
     },
     "phone": {
@@ -167,6 +239,7 @@
     "loginHint": "Kleinbuchstaben, ohne Leerzeichen, z. B. tom",
     "pinLabel": "PIN (4–6 Ziffern)",
     "pinRepeat": "PIN wiederholen",
+    "pinAdvice": "Ein einfaches Zahlencodewort, das du dir merkst — z. B. Geburtsjahr deiner Frau oder deines Kindes. Du brauchst ihn zum Programmieren des Handreglers und in der Telefon-App.",
     "rememberCredentials": "Merke dir Login und PIN — damit meldest du dich in der Telefon-App an.",
     "showPin": "PIN anzeigen",
     "hidePin": "PIN verbergen",
@@ -220,6 +293,54 @@
     "testF2Hint": "F2 läuft auf dem versorgten Hauptgleis (Ops). Stelle die Lok vom Programmiergleis auf ein versorgtes Gleis und tippe — F2 bleibt 1 Sekunde an.",
     "programmingOffline": "Programmierung nicht verfügbar: keine Verbindung zu dcc-bus."
   },
+  "about": {
+    "open": "Diagnostische Informationen",
+    "heading": "Diagnostische Informationen",
+    "refresh": "Aktualisieren",
+    "wizard": "Assistent",
+    "bigfred": "BigFred",
+    "dccbus": "dcc-bus",
+    "wifi": "WLAN / wiThrottle",
+    "wireless": "wireless-programmer",
+    "wirelessHello": "hello",
+    "wirelessLink": "link-status",
+    "enabled": "Aktiviert",
+    "bigfredUrl": "Öffentliche BigFred-URL",
+    "androidAppUrl": "Android-App-URL",
+    "ssoClientId": "SSO-Client-ID",
+    "defaultProtocol": "Standardprotokoll",
+    "redirectUris": "Redirect-URIs",
+    "version": "Version",
+    "tagCommit": "Tag-Commit",
+    "buildCommit": "Build-Commit",
+    "buildTime": "Build-Zeit",
+    "commit": "Commit",
+    "connected": "Verbunden",
+    "disconnected": "Keine Verbindung",
+    "commandStation": "Zentrale",
+    "progOutput": "Programmierausgang",
+    "reconnects": "Neuverbindungen",
+    "lastError": "Letzter Fehler",
+    "driveSocket": "F2-(Drive)-Sitzung",
+    "driveAs": "F2 als Benutzer",
+    "wifiSsid": "SSID",
+    "wifiPsk": "WLAN-Passwort",
+    "pskSet": "Gesetzt",
+    "pskOpen": "Keins (offenes Netz)",
+    "throttleHost": "wiThrottle-Host",
+    "throttlePort": "wiThrottle-Port",
+    "throttleAuto": "Automatisch (mDNS)",
+    "drivers": "Treiber",
+    "interface": "Schnittstelle",
+    "busy": "Beschäftigt",
+    "rfkill": "rfkill",
+    "rfkillOk": "Frei",
+    "rfkillBlocked": "Gesperrt",
+    "yes": "Ja",
+    "no": "Nein",
+    "none": "Keine",
+    "unset": "Nicht gesetzt"
+  },
   "errors": {
     "generic": "Etwas ist schiefgelaufen.",
     "unauthorized": "Sitzung abgelaufen — bitte erneut anmelden.",
@@ -231,6 +352,13 @@
     "dcc_pool_exhausted": "Keine freien DCC-Adressen mehr im Pool.",
     "invalid_address": "Ungültige DCC-Adresse.",
     "bigfred_unreachable": "Der BigFred-Server ist nicht erreichbar.",
-    "qr_url_unset": "Keine URL für diesen QR-Code konfiguriert."
+    "qr_url_unset": "Keine URL für diesen QR-Code konfiguriert.",
+    "busy": "Der Regler ist beschäftigt — bitte gleich nochmal versuchen.",
+    "noCandidates": "Kein Regler gefunden.",
+    "radioBlocked": "Funk ist blockiert. Bitte den Operator um Hilfe bitten.",
+    "wireless_unavailable": "Programmierung ist nicht verfügbar. Bitte den Operator um Hilfe bitten.",
+    "wireless_timeout": "Programmierung hat nicht rechtzeitig geantwortet.",
+    "wifi_not_configured": "WLAN ist im Assistenten nicht konfiguriert. Bitte den Operator die Einstellungen ergänzen lassen.",
+    "forbidden": "Keine Berechtigung zum Programmieren."
   }
 }

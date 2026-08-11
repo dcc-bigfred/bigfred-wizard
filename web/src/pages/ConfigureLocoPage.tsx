@@ -10,9 +10,6 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Step from "@mui/material/Step";
-import StepLabel from "@mui/material/StepLabel";
-import Stepper from "@mui/material/Stepper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -22,6 +19,7 @@ import { useNavigate } from "react-router-dom";
 import AppShell from "../components/AppShell";
 import { ChoiceList, ChoiceOption } from "../components/ChoiceList";
 import ErrorAlert from "../components/ErrorAlert";
+import FlowStepper from "../components/FlowStepper";
 import UserPicker from "../components/UserPicker";
 import { api, ApiError } from "../api/client";
 import {
@@ -183,6 +181,10 @@ export default function ConfigureLocoPage() {
     setSavedVehicle(null);
     setProgrammed(false);
     setVehicles(null);
+    // Warm the impersonated drive socket for F2 as this participant.
+    void api.connectDrive(picked.login).catch(() => {
+      /* F2 / diagnostics will surface the error */
+    });
     if (picked.dccPool.length === 0) {
       setPhase("noPool");
       return;
@@ -364,13 +366,10 @@ export default function ConfigureLocoPage() {
 
   return (
     <AppShell title={t("loco.heading")} showBack>
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {STEPPER_KEYS.map((key) => (
-          <Step key={key}>
-            <StepLabel>{t(`loco.steps.${key}`)}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+      <FlowStepper
+        activeStep={activeStep}
+        labels={STEPPER_KEYS.map((key) => t(`loco.steps.${key}`))}
+      />
 
       <Paper sx={{ p: 4 }}>
         <ErrorAlert error={error} />

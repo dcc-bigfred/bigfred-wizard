@@ -20,7 +20,7 @@ pub async fn qr_svg(
     State(state): State<AppState>,
     Query(q): Query<QrQuery>,
 ) -> ApiResult<Response> {
-    let Some(url) = state.cfg.qr_url(&q.target) else {
+    let Some(url) = state.config().await.qr_url(&q.target) else {
         return Err(ApiError::bad_request("qr_url_unset").with_detail(format!(
             "no URL configured for target {:?}",
             q.target.trim()

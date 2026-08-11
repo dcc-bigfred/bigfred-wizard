@@ -29,8 +29,11 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 clap = { version = "4", features = ["derive"] }
 thiserror = "1"
+notify = "8"
 url = "2"
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
+# Wire types for the wireless-programmer Unix socket (sibling repo).
+wp-proto = { path = "../wireless-programmer/crates/wp-proto" }
 
 [profile.release]
 lto = true

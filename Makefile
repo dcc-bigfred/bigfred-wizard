@@ -86,7 +86,7 @@ dev-backend-isolated:
 		$(CARGO) run -- --config "$(CONFIG)"
 
 dev-backend:
-	$(CARGO) run -- --config "$(CONFIG)"
+	$(CARGO) run
 
 dev-web:
 	cd "$(WEB_DIR)" && HOST=0.0.0.0 $(NPM) run dev

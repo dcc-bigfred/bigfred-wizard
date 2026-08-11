@@ -2,6 +2,7 @@
 // reverse-proxies /api/v1/* to BigFred, so there is no CORS to arrange.
 
 import type {
+  BigFredVersionInfo,
   CommandStation,
   CvEntry,
   LoginLayout,
@@ -101,6 +102,9 @@ function safeParse(text: string): unknown {
 
 export const api = {
   wizardConfig: () => request<WizardConfig>("/api/v1/wizard/config", { auth: false }),
+
+  bigfredVersion: () =>
+    request<BigFredVersionInfo>("/api/v1/version", { auth: false }),
 
   exchangeCode: (code: string, redirectUri: string, state?: string) =>
     request<TokenResponse>("/api/v1/wizard/oauth/token", {
@@ -228,6 +232,19 @@ export const api = {
 
   programmingStatus: () =>
     request<ProgrammingStatus>("/api/v1/wizard/programming/status"),
+
+  /** Warm the organizer dcc-bus WebSocket if not already connected. */
+  connectProgramming: () =>
+    request<ProgrammingStatus>("/api/v1/wizard/programming/connect", {
+      method: "POST",
+    }),
+
+  /** Warm/switch the impersonated drive socket for the selected participant. */
+  connectDrive: (asLogin: string) =>
+    request<ProgrammingStatus>("/api/v1/wizard/programming/drive-connect", {
+      method: "POST",
+      body: { as: asLogin },
+    }),
 
   readCvs: (address: number, cvs: number[], mode?: string) =>
     request<ProgrammingResult>("/api/v1/wizard/programming/cvs/read", {

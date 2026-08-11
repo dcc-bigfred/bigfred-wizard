@@ -16,8 +16,9 @@
     "fullscreen": "Fullscreen",
     "exitFullscreen": "Exit fullscreen",
     "disabled": "The wizard is disabled",
-    "disabledHint": "Set \"enabled\": true in /data/etc/bigfred/wizard/bigfred-wizard.json and restart the bigfred-wizard service.",
-    "idleLogout": "Logged out after being idle."
+    "disabledHint": "Set \"enabled\": true in /data/etc/bigfred/wizard/bigfred-wizard.json (changes apply without restart).",
+    "idleLogout": "Logged out after being idle.",
+    "about": "Diagnostic information"
   },
   "login": {
     "heading": "Welcome to the event",
@@ -93,11 +94,82 @@
       },
       "longfred": {
         "title": "LongFred",
-        "hint": "Network handset"
+        "hint": "Physical throttle handset"
       },
       "wifred": {
-        "title": "WiFred",
-        "hint": "Network handset"
+        "title": "WiFred (Heiko Rosemann)",
+        "hint": "Physical throttle handset"
+      },
+      "withrottle-advanced": {
+        "title": "Other WiThrottle app (advanced)",
+        "hint": "Pair over WiThrottle — for advanced users"
+      }
+    },
+    "program": {
+      "steps": {
+        "user": "Who drives",
+        "pin": "Code",
+        "enterPairing": "Turn on handset",
+        "scan": "Find handset",
+        "pickRoster": "Locomotives",
+        "programming": "Programming",
+        "done": "Done"
+      },
+      "whoDrives": "Who will drive with this handset?",
+      "pinWifredTitle": "Enter your 6-digit BigFred pairing code",
+      "pinWifredHint": "The same code you got when the account was created.",
+      "pinLongfredTitle": "Enter your BigFred PIN",
+      "pinLongfredHint": "The same PIN you use to sign in to BigFred.",
+      "pinContinue": "Continue",
+      "enterPairingTitle": "Put the handset into pairing mode",
+      "enterPairingContinue": "Continue, find my handset",
+      "wifredEnter": {
+        "1": "Turn on your WiFred (flip a locomotive switch up).",
+        "2": "Hold the yellow Shift button for 5 seconds until the red light starts blinking."
+      },
+      "pickVariantTitle": "Which LongFred model do you have?",
+      "longfredVariants": {
+        "markwtech": {
+          "title": "LongFred (markwtech)",
+          "steps": {
+            "1": "On the powered-on handset, hold * (Menu) and the red Stop button together for 8 seconds until a light starts blinking."
+          }
+        }
+      },
+      "scanTitle": "Handsets found nearby",
+      "scanEmpty": "No handset found. Make sure it is on in pairing mode and try again.",
+      "scanRetry": "Search again",
+      "scanBusy": "Looking for handsets…",
+      "rosterTitle": "Choose the locomotives you want to drive",
+      "rosterHint": "Pick up to {{max}} locomotives. Selection order is the order on the handset (1, 2, 3…).",
+      "rosterMaxReached": "You can pick at most {{max}} locomotives on this handset.",
+      "rosterEmpty": "You have no locomotives yet. Add some in the locomotive wizard first.",
+      "rosterContinue": "Program the handset",
+      "programmingTitle": "Programming the handset…",
+      "programmingStates": {
+        "queued": "Getting ready…",
+        "joining": "Connecting to the handset…",
+        "probing": "Reading settings…",
+        "writing": "Saving settings…",
+        "verifying": "Checking…",
+        "restarting": "Almost done…",
+        "done": "Done!",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      },
+      "doneTitle": "Your handset is ready!",
+      "doneLead": "You can start driving now.",
+      "doneHome": "Back to menu",
+      "failedTitle": "Could not program the handset",
+      "failedRetry": "Try again",
+      "wifiMissing": "Wi‑Fi is not configured in the wizard. Ask the operator to fill in the settings.",
+      "errors": {
+        "busy": "The handset is busy — try again in a moment.",
+        "noCandidates": "No handset found.",
+        "radioBlocked": "The radio is blocked. Ask the operator for help.",
+        "wireless_unavailable": "Programming is unavailable. Ask the operator for help.",
+        "forbidden": "Not allowed to program the handset.",
+        "generic": "Something went wrong. Please try again."
       }
     },
     "phone": {
@@ -167,6 +239,7 @@
     "loginHint": "Lowercase, no spaces, e.g. tom",
     "pinLabel": "PIN (4–6 digits)",
     "pinRepeat": "Repeat PIN",
+    "pinAdvice": "A simple numeric password you will remember — e.g. your spouse’s or child’s year of birth. You will need it to program a handset or use the phone app.",
     "rememberCredentials": "Remember your login and PIN — you will need them to sign in on the phone app.",
     "showPin": "Show PIN",
     "hidePin": "Hide PIN",
@@ -220,6 +293,54 @@
     "testF2Hint": "F2 runs on the powered main track (ops). Move the loco off the programming track onto powered rails, then tap the button — F2 stays on for 1 second.",
     "programmingOffline": "Programming unavailable: no dcc-bus connection."
   },
+  "about": {
+    "open": "Diagnostic information",
+    "heading": "Diagnostic information",
+    "refresh": "Refresh",
+    "wizard": "Wizard",
+    "bigfred": "BigFred",
+    "dccbus": "dcc-bus",
+    "wifi": "Wi‑Fi / wiThrottle",
+    "wireless": "wireless-programmer",
+    "wirelessHello": "hello",
+    "wirelessLink": "link-status",
+    "enabled": "Enabled",
+    "bigfredUrl": "BigFred public URL",
+    "androidAppUrl": "Android app URL",
+    "ssoClientId": "SSO client id",
+    "defaultProtocol": "Default protocol",
+    "redirectUris": "Redirect URIs",
+    "version": "Version",
+    "tagCommit": "Tag commit",
+    "buildCommit": "Build commit",
+    "buildTime": "Build time",
+    "commit": "Commit",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "commandStation": "Command station",
+    "progOutput": "Programming output",
+    "reconnects": "Reconnects",
+    "lastError": "Last error",
+    "driveSocket": "F2 (drive) session",
+    "driveAs": "F2 as user",
+    "wifiSsid": "SSID",
+    "wifiPsk": "Wi‑Fi password",
+    "pskSet": "Configured",
+    "pskOpen": "None (open network)",
+    "throttleHost": "wiThrottle host",
+    "throttlePort": "wiThrottle port",
+    "throttleAuto": "Automatic (mDNS)",
+    "drivers": "Drivers",
+    "interface": "Interface",
+    "busy": "Busy",
+    "rfkill": "rfkill",
+    "rfkillOk": "Unblocked",
+    "rfkillBlocked": "Blocked",
+    "yes": "Yes",
+    "no": "No",
+    "none": "None",
+    "unset": "Not set"
+  },
   "errors": {
     "generic": "Something went wrong.",
     "unauthorized": "Session expired — please sign in again.",
@@ -231,6 +352,13 @@
     "dcc_pool_exhausted": "No free DCC addresses left in the pool.",
     "invalid_address": "Invalid DCC address.",
     "bigfred_unreachable": "The BigFred server is unreachable.",
-    "qr_url_unset": "No URL configured for this QR code."
+    "qr_url_unset": "No URL configured for this QR code.",
+    "busy": "The handset is busy — try again in a moment.",
+    "noCandidates": "No handset found.",
+    "radioBlocked": "The radio is blocked. Ask the operator for help.",
+    "wireless_unavailable": "Programming is unavailable. Ask the operator for help.",
+    "wireless_timeout": "Programming did not answer in time.",
+    "wifi_not_configured": "Wi‑Fi is not configured in the wizard. Ask the operator to fill in the settings.",
+    "forbidden": "Not allowed to program the handset."
   }
 }

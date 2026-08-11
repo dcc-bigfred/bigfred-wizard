@@ -5,9 +5,6 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Step from "@mui/material/Step";
-import StepLabel from "@mui/material/StepLabel";
-import Stepper from "@mui/material/Stepper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useTranslation } from "react-i18next";
@@ -15,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 
 import AppShell from "../components/AppShell";
 import ErrorAlert from "../components/ErrorAlert";
+import FlowStepper from "../components/FlowStepper";
 import NumericKeypad from "../components/NumericKeypad";
 import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
@@ -120,13 +118,10 @@ export default function CreateAccountPage() {
 
   return (
     <AppShell title={t("account.heading")} showBack>
-      <Stepper activeStep={Math.min(step, FLOW_STEPS.length - 1)} sx={{ mb: 4 }}>
-        {FLOW_STEPS.map((key) => (
-          <Step key={key}>
-            <StepLabel>{t(`account.steps.${key}`)}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+      <FlowStepper
+        activeStep={Math.min(step, FLOW_STEPS.length - 1)}
+        labels={FLOW_STEPS.map((key) => t(`account.steps.${key}`))}
+      />
 
       <Paper sx={{ p: 4 }}>
         <ErrorAlert error={error} />
@@ -154,7 +149,7 @@ export default function CreateAccountPage() {
         {step === 1 && (
           <Box>
             <Alert severity="warning" sx={{ mb: 3 }}>
-              {t("account.rememberCredentials")}
+              {t("account.pinAdvice")}
             </Alert>
             <NumericKeypad
               label={t("account.pinLabel")}
