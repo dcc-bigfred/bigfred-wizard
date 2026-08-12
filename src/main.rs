@@ -13,6 +13,7 @@ mod config_watch;
 mod dccbus_client;
 mod ensure_client;
 mod error;
+mod handset_api;
 mod oauth_proxy;
 mod programming_api;
 mod qr;
@@ -229,6 +230,7 @@ fn router(state: AppState, cors_enabled: bool, cors_origins: &[String]) -> Route
     let mut app = Router::new()
         .route("/healthz", get(healthz))
         .route("/api/v1/wizard/config", get(public_config))
+        .route("/api/v1/wizard/handset-setup", get(handset_api::setup))
         .route("/api/v1/wizard/qr.svg", get(qr::qr_svg))
         .route("/api/v1/wizard/oauth/token", post(oauth_proxy::token))
         .route(

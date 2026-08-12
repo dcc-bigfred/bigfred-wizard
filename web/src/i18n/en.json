@@ -38,6 +38,8 @@
   "home": {
     "heading": "What would you like to do?",
     "tiles": {
+      "gettingStarted": "Where do I start?",
+      "gettingStartedHint": "A short step-by-step order for the event",
       "account": "Create a new account",
       "accountHint": "Login, PIN and a DCC address pool",
       "drive": "I want to drive — help me set up a handset or phone",
@@ -46,10 +48,25 @@
       "locoHint": "DCC address and roster entry"
     }
   },
+  "help": {
+    "ok": "OK",
+    "gettingStarted": [
+      "First create an account and set a PIN — you only need to do this once. Choose a simple PIN you'll remember, e.g. your wife's birth year",
+      "Place the locomotive on the programming track and configure it",
+      "Set up a handset or the phone app for driving. One handset can hold several locomotives, and you can always reprogram it for different ones"
+    ]
+  },
   "drive": {
     "heading": "Set up driving",
     "pickDevice": "What will you drive with?",
     "pickDeviceHint": "Tap the large card that matches your device.",
+    "whatToChoose": "What should I choose?",
+    "whatToChooseHint": "Help choosing the right option",
+    "whatToChooseBody": [
+      "If you have a LongFred or WiFred handset, choose it. If you have a WlanMaus instead and know how to use it, I can help you set that up too.",
+      "Don't have a physical handset? Choose the BigFred app on an Android phone or on another phone.",
+      "The other options are for advanced users and require technical knowledge. Unfortunately, as much as I'd like to, I won't be able to help here if you have an unknown device or an unfamiliar app."
+    ],
     "pickStation": "Which command station?",
     "startPairing": "Start pairing",
     "alreadyPairedTitle": "A handset is already paired",
@@ -71,17 +88,53 @@
       "qr": "QR code",
       "drive": "Drive",
       "user": "Participant",
+      "wifi": "Wi‑Fi",
       "pairing": "Pairing",
+      "driveMode": "Drive mode",
       "loco": "Locomotive",
       "howto": "How-to"
     },
+    "wlanmaus": {
+      "wifiQuestion": "Is the WlanMaus connected to Wi‑Fi?",
+      "wifiYes": "Yes",
+      "wifiNo": "No",
+      "wifiCredentialsTitle": "Wi‑Fi details",
+      "wifiSsid": "SSID",
+      "wifiPassword": "Password",
+      "wifiZ21Ip": "Z21 address (BigFred)",
+      "wifiOpenNetwork": "(open network — no password)",
+      "wifiSteps": {
+        "1": "Hold the <menu>[Menu]</menu> button for 10 s",
+        "2": "Select the 3rd option “Settings” → <ok>[OK]</ok>",
+        "3": "Select the 6th option “WIFI” → <ok>[OK]</ok>",
+        "4": "Select the 1st option “SSID” → <ok>[OK]</ok>",
+        "5": "Select SEARCH → <ok>[OK]</ok>",
+        "6": "Select the network named <strong>{{ssid}}</strong> → <ok>[OK]</ok>",
+        "7": "Select the 2nd option “PASSWORD” → <ok>[OK]</ok>",
+        "8": "Enter <strong>{{password}}</strong> → <ok>[OK]</ok>",
+        "9": "Select option 3 “Z21 IP ADDRESS” → enter <strong>{{z21Ip}}</strong> → <ok>[OK]</ok>",
+        "10": "The “Y” icon on the right should stop blinking and show signal bars",
+        "11": "Press STOP 5 times to exit the menu"
+      },
+      "pairingLead": "Enter the pairing code on the WlanMaus function keys — press:",
+      "driveModeTitle": "Enable address-based driving",
+      "driveModeSteps": {
+        "1": "Hold the <menu>[Menu]</menu> button for 10 s",
+        "2": "Select LOCO → <ok>[OK]</ok>",
+        "3": "Select (7) MODE → <ok>[OK]</ok>",
+        "4": "Select ADDRESS → <ok>[OK]</ok>",
+        "5": "Press STOP 5 times to exit the menu"
+      },
+      "locoListTitle": "Your locomotives",
+      "locoListHint": "Here is your locomotive list with DCC addresses. On the WlanMaus, use the left and right arrows to change the DCC address and switch locomotives."
+    },
     "devices": {
       "android": {
-        "title": "Android phone or tablet",
+        "title": "BigFred on Android (phone/tablet)",
         "hint": "Phones with the Google Play store, e.g. LG, Motorola, Samsung, Xiaomi, Sony, Asus, Nokia, Honor, Blackberry"
       },
       "otherPhone": {
-        "title": "Another phone",
+        "title": "BigFred on another phone",
         "hint": "e.g. Apple iPhone"
       },
       "wlanmaus": {
@@ -236,7 +289,12 @@
       "summary": "Summary"
     },
     "loginLabel": "Participant login",
-    "loginHint": "Lowercase, no spaces, e.g. tom",
+    "loginHint": "Only letters a–z / A–Z, no spaces or accented characters, e.g. tom",
+    "whyAccount": "Why do I need an account?",
+    "whyAccountBody": "So you can program a handset, so no one else can take your vehicles, and so we can automate how the layout runs by knowing which vehicle is passing through, and so we as organizers can see who uses the layout and how, for organizational purposes. In return you get the app, easy pairing of wireless handsets, and control from your phone. I think it’s worth it! Have fun!",
+    "organizationLabel": "Club name (optional)",
+    "organizationHint": "Saved as the organization in BigFred",
+    "summaryOrganization": "Club: {{organization}}",
     "pinLabel": "PIN (4–6 digits)",
     "pinRepeat": "Repeat PIN",
     "pinAdvice": "A simple numeric password you will remember — e.g. your spouse’s or child’s year of birth. You will need it to program a handset or use the phone app.",
@@ -246,6 +304,7 @@
     "pinMismatch": "The PINs do not match.",
     "pinTooShort": "The PIN must be 4 to 6 digits.",
     "loginTooShort": "The login needs at least 3 characters.",
+    "loginInvalidChars": "The login may contain only letters a–z and A–Z (no accented characters, digits, or symbols).",
     "summaryLead": "The account gets a pool of {{count}} DCC addresses.",
     "create": "Create account",
     "created": "Account {{login}} created.",
@@ -255,7 +314,9 @@
   "pair": {
     "pickUser": "Who is this for?",
     "searchUser": "Search participants",
-    "noUsers": "No accounts yet — create a participant account first."
+    "noUsers": "No accounts yet — create a participant account first.",
+    "accountMissing": "I don’t see my account",
+    "accountMissingHint": "Go to create a new account"
   },
   "loco": {
     "heading": "Locomotive setup",
@@ -266,6 +327,17 @@
       "program": "Programming"
     },
     "noDccPool": "Sorry — you have no DCC address pool. Please ask the layout administrator.",
+    "whyPickUser": "Why do I need to choose?",
+    "whyPickUserBody": [
+      "Your locomotive is assigned to you. No one else can drive it — that's how we designed it! Unless you consciously lend it to someone <smile/>",
+      "That also lets us plan future layout features — announcements, screens for the audience, and other interesting technical solutions — knowing who is driving where. Isn't that fascinating progress?"
+    ],
+    "whereDccNumber": "Where do I get the number?",
+    "whereDccNumberBody": [
+      "You don't need to know the DCC number — I'll pick one from your BigFred account pool and then program the decoder.",
+      "I've already filled it in; you can change it, but it's better to leave it as is — it's good!",
+      "No worries! Because BigFred remembers your locomotive, you don't need to remember its DCC address — I remember the address, and you remember the locomotive's name! <smile/>"
+    ],
     "pickLoco": "Which locomotive are we setting up?",
     "pickLocoHint": "Pick from the list, or add a new one if it is missing.",
     "addNewLoco": "I did not find my locomotive on this list — I need to add it",

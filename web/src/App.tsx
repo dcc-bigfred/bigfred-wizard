@@ -7,6 +7,8 @@ import { useTranslation } from "react-i18next";
 
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import AppShell from "./components/AppShell";
+import { HelpProvider } from "./help/HelpContext";
+import HelpOverlay from "./help/HelpOverlay";
 import AboutPage from "./pages/AboutPage";
 import CallbackPage from "./pages/CallbackPage";
 import CreateAccountPage from "./pages/CreateAccountPage";
@@ -91,7 +93,10 @@ function Router() {
 export default function App() {
   return (
     <AuthProvider>
-      <Router />
+      <HelpProvider>
+        <Router />
+        <HelpOverlay />
+      </HelpProvider>
     </AuthProvider>
   );
 }

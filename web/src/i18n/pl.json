@@ -38,6 +38,8 @@
   "home": {
     "heading": "Co chcesz zrobić?",
     "tiles": {
+      "gettingStarted": "Od czego zacząć?",
+      "gettingStartedHint": "Krótka kolejność kroków na imprezie",
       "account": "Utwórz nowe konto",
       "accountHint": "Od tego rozpocznij, to zajmie bardzo krótko",
       "drive": "Chcę jeździć, pomóż mi ustawić pilot lub telefon",
@@ -46,10 +48,25 @@
       "locoHint": "Zadam Ci tylko kilka pytań i gotowe"
     }
   },
+  "help": {
+    "ok": "OK",
+    "gettingStarted": [
+      "Najpierw utwórz konto i nadaj numer PIN - wystarczy, że zrobisz to raz. Nadaj prosty PIN, który zapamiętasz np. rok urodzenia Żony",
+      "Postaw lokomotywę na tor programujący i skonfiguruj",
+      "Ustaw pilot lub aplikację do jeżdżenia. Na jednym pilocie możesz mieć kilka lokomotyw i zawsze przeprogramować go aby to były inne"
+    ]
+  },
   "drive": {
     "heading": "Ustawianie sterowania",
     "pickDevice": "Czym chcesz sterować?",
     "pickDeviceHint": "Dotknij dużej karty z obrazkiem swojego urządzenia.",
+    "whatToChoose": "Co wybrać?",
+    "whatToChooseHint": "Pomoc w wyborze właściwej opcji",
+    "whatToChooseBody": [
+      "Jeśli masz pilota LongFred lub WiFred, wybierz go. Jeśli zamiast tego masz WlanMausa i potrafisz go obsłużyć - pomogę Ci także go skonfigurować.",
+      "Nie masz pilota fizycznego? Wybierz aplikację BigFred na telefon z Androidem lub na inny telefon.",
+      "Pozostałe opcje są dla zaawansowanych użytkowników i wymagają wiedzy technicznej, niestety choć bardzo chcę - nie będę w stanie tu pomóc jeśli masz nieznane urządzenie lub nieznaną aplikację."
+    ],
     "pickStation": "Którą centralę wybrać?",
     "startPairing": "Rozpocznij parowanie",
     "alreadyPairedTitle": "Pilot już jest sparowany",
@@ -71,17 +88,53 @@
       "qr": "Kod QR",
       "drive": "Jazda",
       "user": "Uczestnik",
+      "wifi": "Wi‑Fi",
       "pairing": "Parowanie",
+      "driveMode": "Tryb jazdy",
       "loco": "Lokomotywa",
       "howto": "Instrukcja"
     },
+    "wlanmaus": {
+      "wifiQuestion": "Czy WlanMaus jest połączony z siecią Wi‑Fi?",
+      "wifiYes": "Tak",
+      "wifiNo": "Nie",
+      "wifiCredentialsTitle": "Dane sieci Wi‑Fi",
+      "wifiSsid": "SSID",
+      "wifiPassword": "Hasło",
+      "wifiZ21Ip": "Adres Z21 (BigFred)",
+      "wifiOpenNetwork": "(sieć otwarta — bez hasła)",
+      "wifiSteps": {
+        "1": "Trzymamy przycisk <menu>[Menu]</menu> 10 s",
+        "2": "Wybieramy 3-cią opcję „Settings” → <ok>[OK]</ok>",
+        "3": "Wybieramy 6-tą opcję „WIFI” → <ok>[OK]</ok>",
+        "4": "Wybieramy 1-szą opcję „SSID” → <ok>[OK]</ok>",
+        "5": "Wybieramy SEARCH → <ok>[OK]</ok>",
+        "6": "Wybieramy sieć o nazwie <strong>{{ssid}}</strong> → <ok>[OK]</ok>",
+        "7": "Wybieramy 2-gą opcję „PASSWORD” → <ok>[OK]</ok>",
+        "8": "Wpisujemy <strong>{{password}}</strong> → <ok>[OK]</ok>",
+        "9": "Wybieramy opcję nr. 3 „Z21 IP ADDRESS” → wpisujemy <strong>{{z21Ip}}</strong> → <ok>[OK]</ok>",
+        "10": "Ikona w kształcie „Y” po prawej stronie powinna przestać mrugać i pokazywać kreski zasięgu",
+        "11": "Naciskamy przycisk STOP 5 razy, aby wyjść z menu"
+      },
+      "pairingLead": "Wpisz kod parowania na klawiaturze funkcji WlanMausa — kolejne klawisze:",
+      "driveModeTitle": "Włączenie trybu jazdy po adresie",
+      "driveModeSteps": {
+        "1": "Trzymamy przycisk <menu>[Menu]</menu> 10 s",
+        "2": "Wybieramy LOCO → <ok>[OK]</ok>",
+        "3": "Wybieramy (7) MODE → <ok>[OK]</ok>",
+        "4": "Wybieramy ADDRESS → <ok>[OK]</ok>",
+        "5": "Naciskamy przycisk STOP 5 razy, aby wyjść z menu"
+      },
+      "locoListTitle": "Twoje lokomotywy",
+      "locoListHint": "Oto lista lokomotyw wraz z adresami DCC. Na WlanMausie strzałkami w lewo i w prawo zmieniasz adres DCC, aby przełączyć lokomotywę."
+    },
     "devices": {
       "android": {
-        "title": "Telefon lub tablet z Androidem",
+        "title": "BigFred na Androidzie (tablet/telefon)",
         "hint": "Telefony ze sklepem Google Play, np. LG, Motorola, Samsung, Xiaomi, Sony, Asus, Nokia, Honor, Blackberry"
       },
       "otherPhone": {
-        "title": "Inny telefon",
+        "title": "BigFred na innym telefonie",
         "hint": "np. Apple iPhone"
       },
       "wlanmaus": {
@@ -236,7 +289,12 @@
       "summary": "Podsumowanie"
     },
     "loginLabel": "Login uczestnika",
-    "loginHint": "Małe litery, bez spacji, np. tomek",
+    "loginHint": "Tylko litery a–z / A–Z, bez spacji i polskich znaków, np. tomek",
+    "whyAccount": "Po co mi konto?",
+    "whyAccountBody": "Aby zaprogramować pilota, aby nikt nie podkradł Tobie pojazdów, abyśmy mogli automatyzować działanie makiety wiedząc jaki pojazd przejeżdża, abyśmy jako organizatorzy widzieli kto i jak korzysta z makiety w celach organizacyjnych. Dostajesz w zamian aplikację, możliwość łatwego parowania bezprzewodowych pilotów, sterowania z telefonu. Myślę, że warto! Miłego czasu!",
+    "organizationLabel": "Nazwa klubu (opcjonalne)",
+    "organizationHint": "Zapisze się jako organizacja w BigFred",
+    "summaryOrganization": "Klub: {{organization}}",
     "pinLabel": "PIN (4–6 cyfr)",
     "pinRepeat": "Powtórz PIN",
     "pinAdvice": "Proste hasło liczbowe, które zapamiętasz np. rok urodzenia Twojej Żony albo Dziecka. Będzie potrzebne Ci do zaprogramowania pilota czy używania aplikacji na telefon",
@@ -246,6 +304,7 @@
     "pinMismatch": "PIN-y nie są takie same.",
     "pinTooShort": "PIN musi mieć od 4 do 6 cyfr.",
     "loginTooShort": "Login musi mieć co najmniej 3 znaki.",
+    "loginInvalidChars": "Login może zawierać tylko litery a–z i A–Z (bez polskich znaków, cyfr i symboli).",
     "summaryLead": "Utworzymy konto z pulą {{count}} adresów DCC.",
     "create": "Utwórz konto",
     "created": "Konto {{login}} zostało utworzone.",
@@ -255,7 +314,9 @@
   "pair": {
     "pickUser": "Dla kogo ustawiamy sterowanie?",
     "searchUser": "Szukaj uczestnika",
-    "noUsers": "Brak kont — najpierw utwórz konto uczestnika."
+    "noUsers": "Brak kont — najpierw utwórz konto uczestnika.",
+    "accountMissing": "Nie widzę swojego konta",
+    "accountMissingHint": "Przejdź do zakładania nowego konta"
   },
   "loco": {
     "heading": "Konfiguracja lokomotywy",
@@ -266,6 +327,17 @@
       "program": "Programowanie"
     },
     "noDccPool": "Przykro mi, nie masz puli DCC — poproś administratora makiety.",
+    "whyPickUser": "Dlaczego mam wybrać?",
+    "whyPickUserBody": [
+      "Twoja lokomotywa przypisana do Ciebie. Nikt inny nie może nią jeździć, tak to zaprojektowaliśmy! Chyba, że ją komuś pożyczysz świadomie <smile/>",
+      "Dzięki temu także możemy zaplanować rozbudowę makiety w przyszłości o na przykład zapowiedzi, ekrany dla publiczności czy inne ciekawe rozwiązania techniczne wiedząc kto i gdzie jeździ. Czyż to nie fascynujący postęp techniczny?"
+    ],
+    "whereDccNumber": "Skąd mam znać numer?",
+    "whereDccNumberBody": [
+      "Nie potrzebujesz znać numeru DCC, sam go wymyślę na bazie puli Twojego konta w BigFred, a następnie zaprogramuję dekoder.",
+      "Numerek już wpisałem, możesz go zmienić, ale lepiej zostaw jak jest - jest dobrze!",
+      "Bez obaw! Dzięki zapamiętaniu lokomotywy w BigFred nie musisz pamiętać jej numeru adresu DCC, ja pamiętam adres, a Ty nazwę lokomotywy! <smile/>"
+    ],
     "pickLoco": "Którą lokomotywę konfigurujemy?",
     "pickLocoHint": "Wybierz z listy albo dodaj nową, jeśli jej tu nie ma.",
     "addNewLoco": "Nie znalazłem swojej lokomotywy na tej liście, potrzebuję ją dodać",

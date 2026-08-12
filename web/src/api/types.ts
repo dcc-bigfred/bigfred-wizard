@@ -20,6 +20,13 @@ export interface WizardConfig {
   throttleServerAutomatic: boolean;
 }
 
+export interface HandsetSetup {
+  wifiSsid: string;
+  wifiPsk: string;
+  bigfredHost: string;
+  bigfredIpv4?: string;
+}
+
 /** Payload from BigFred GET /api/v1/version (proxied). */
 export interface BigFredVersionInfo {
   version: string;

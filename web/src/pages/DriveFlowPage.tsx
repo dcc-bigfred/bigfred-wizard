@@ -9,6 +9,7 @@ import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { Trans, useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
@@ -21,7 +22,7 @@ import PinDialog from "../components/PinDialog";
 import RosterPicker, { rosterFromVehicles } from "../components/RosterPicker";
 import UserPicker from "../components/UserPicker";
 import { api, ApiError } from "../api/client";
-import type { CommandStation, RemotePairing, User, Vehicle, WizardConfig } from "../api/types";
+import type { CommandStation, HandsetSetup, RemotePairing, User, Vehicle, WizardConfig } from "../api/types";
 import {
   driverCapabilities,
   generateLongfredIdentity,
@@ -32,11 +33,13 @@ import {
   type JobState,
 } from "../api/wireless";
 import { useAuth } from "../auth/AuthContext";
+import { useHelp } from "../help/HelpContext";
 import {
   DEVICE_OPTIONS,
   howToEnterKey,
   isPhoneDevice,
   isWirelessProgramDevice,
+  isWlanmausDevice,
   LONGFRED_VARIANTS,
   pairingDigits,
   protocolForDevice,
@@ -56,6 +59,9 @@ type Phase =
   | "station"
   | "rePairConfirm"
   | "pairing"
+  | "wlanmausWifi"
+  | "wlanmausDriveMode"
+  | "wlanmausLocoList"
   | "pickLoco"
   | "howToEnter"
   // Wireless-programmer flow (WiFred / LongFred):
@@ -111,6 +117,9 @@ export default function DriveFlowPage() {
   const [rosterIds, setRosterIds] = useState<string[]>([]);
   const [jobFrame, setJobFrame] = useState<JobFrame | null>(null);
   const [failDetail, setFailDetail] = useState<string>("");
+  const [wlanmausWifiNeedsSetup, setWlanmausWifiNeedsSetup] = useState<boolean | null>(null);
+  const [handsetSetup, setHandsetSetup] = useState<HandsetSetup | null>(null);
+  const [handsetSetupLoading, setHandsetSetupLoading] = useState(false);
 
   const wireless = device != null && isWirelessProgramDevice(device);
 
@@ -133,6 +142,9 @@ export default function DriveFlowPage() {
         "done",
       ];
     }
+    if (isWlanmausDevice(device)) {
+      return ["device", "user", "wifi", "pairing", "driveMode", "loco"];
+    }
     return ["device", "user", "pairing", "loco", "howto"];
   }, [device]);
 
@@ -146,6 +158,9 @@ export default function DriveFlowPage() {
       station: "pairing",
       rePairConfirm: "pairing",
       pairing: "pairing",
+      wlanmausWifi: "wifi",
+      wlanmausDriveMode: "driveMode",
+      wlanmausLocoList: "loco",
       pickLoco: "loco",
       howToEnter: "howto",
       wpPin: "pin",
@@ -274,22 +289,96 @@ export default function DriveFlowPage() {
     setError(null);
   };
 
+  const proceedToWlanmausPairing = useCallback(() => {
+    if (!user || !device || !isWlanmausDevice(device)) {
+      return;
+    }
+    setError(null);
+    if (stations === null) {
+      return;
+    }
+    if (stations.length === 0) {
+      setError(new ApiError(422, "no_programming_station"));
+      return;
+    }
+    if (stations.length === 1 && stations[0]) {
+      setStation(stations[0]);
+      void beginPairing(user, stations[0], device);
+      return;
+    }
+    setPhase("station");
+  }, [user, device, stations, beginPairing]);
+
+  const loadHandsetSetup = useCallback(async () => {
+    setHandsetSetupLoading(true);
+    setError(null);
+    try {
+      const setup = await api.handsetSetup();
+      setHandsetSetup(setup);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setHandsetSetupLoading(false);
+    }
+  }, []);
+
+  const onWlanmausWifiNo = () => {
+    setWlanmausWifiNeedsSetup(true);
+    if (!handsetSetup && !handsetSetupLoading) {
+      void loadHandsetSetup();
+    }
+  };
+
+  const onWlanmausWifiYes = () => {
+    setWlanmausWifiNeedsSetup(false);
+    proceedToWlanmausPairing();
+  };
+
+  const goToWlanmausLocoList = async () => {
+    if (!user) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const list = await api.vehicles(user.login);
+      setVehicles(
+        list.filter(
+          (v) =>
+            (v.ownerLogin != null && v.ownerLogin === user.login) ||
+            (v.ownerId != null && v.ownerId === user.id),
+        ),
+      );
+      setPhase("wlanmausLocoList");
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onUserPicked = (picked: User) => {
     setUser(picked);
     setBusy(true);
     setError(null);
+    setWlanmausWifiNeedsSetup(null);
+    setHandsetSetup(null);
     void api.connectDrive(picked.login).catch(() => {
       /* pairing / F2 will surface failures */
     });
     if (device && isWirelessProgramDevice(device)) {
       setBusy(false);
       setPhase("wpPin");
+      return;
+    }
+    if (device && isWlanmausDevice(device)) {
+      setBusy(false);
+      setPhase("wlanmausWifi");
+      return;
     }
   };
 
   // After the participant is chosen, auto-start pairing (one CS) or ask which CS.
   useEffect(() => {
-    if (!user || !device || isPhoneDevice(device) || isWirelessProgramDevice(device) || pairing) {
+    if (!user || !device || isPhoneDevice(device) || isWirelessProgramDevice(device) || isWlanmausDevice(device) || pairing) {
       return;
     }
     if (stations === null) {
@@ -532,6 +621,39 @@ export default function DriveFlowPage() {
           </Box>
         )}
 
+        {phase === "wlanmausWifi" && (
+          <WlanmausWifiStep
+            needsSetup={wlanmausWifiNeedsSetup}
+            setup={handsetSetup}
+            setupLoading={handsetSetupLoading}
+            stationsLoading={stations === null}
+            onYes={onWlanmausWifiYes}
+            onNo={onWlanmausWifiNo}
+            onContinue={() => proceedToWlanmausPairing()}
+            onBack={() => {
+              setUser(null);
+              setWlanmausWifiNeedsSetup(null);
+              setHandsetSetup(null);
+              setPhase("user");
+            }}
+          />
+        )}
+
+        {phase === "wlanmausDriveMode" && (
+          <WlanmausDriveModeStep
+            onBack={() => setPhase("pairing")}
+            onContinue={() => void goToWlanmausLocoList()}
+            busy={busy}
+          />
+        )}
+
+        {phase === "wlanmausLocoList" && (
+          <WlanmausLocoListStep
+            vehicles={vehicles}
+            onDone={() => navigate("/")}
+          />
+        )}
+
         {phase === "wpPin" && device && (
           <PinDialog
             exact={device === "wifred" ? 6 : undefined}
@@ -669,8 +791,11 @@ export default function DriveFlowPage() {
               </ChoiceList>
             )}
             <Stack direction="row" justifyContent="space-between" sx={{ mt: 3 }}>
-              <Button variant="outlined" onClick={cancel}>
-                {t("app.cancel")}
+              <Button
+                variant="outlined"
+                onClick={() => (device === "wlanmaus" ? setPhase("wlanmausWifi") : cancel())}
+              >
+                {t("app.back")}
               </Button>
               <Button
                 variant="contained"
@@ -710,14 +835,16 @@ export default function DriveFlowPage() {
             expired={expired}
             busy={busy}
             onCancel={cancel}
-            onContinue={() => void goPickLoco()}
+            onContinue={() =>
+              isWlanmausDevice(device) ? setPhase("wlanmausDriveMode") : void goPickLoco()
+            }
             onRetry={() => {
               if (user && station && device) void beginPairing(user, station, device);
             }}
           />
         )}
 
-        {phase === "pickLoco" && (
+        {phase === "pickLoco" && device && !isWlanmausDevice(device) && (
           <PickLocoStep
             vehicles={vehicles}
             selected={pickedLoco}
@@ -741,6 +868,22 @@ export default function DriveFlowPage() {
 
 function DevicePicker({ onPick }: { onPick: (id: DriveDevice) => void }) {
   const { t } = useTranslation();
+  const { showHelp } = useHelp();
+
+  const openWhatToChoose = () => {
+    const paragraphs = t("drive.whatToChooseBody", { returnObjects: true });
+    const items = Array.isArray(paragraphs) ? (paragraphs as string[]) : [];
+    showHelp(
+      <>
+        {items.map((paragraph) => (
+          <Typography key={paragraph} component="p" sx={{ m: 0, "&:not(:last-child)": { mb: 2 } }}>
+            {paragraph}
+          </Typography>
+        ))}
+      </>,
+    );
+  };
+
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 1 }}>
@@ -756,6 +899,30 @@ function DevicePicker({ onPick }: { onPick: (id: DriveDevice) => void }) {
           gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
         }}
       >
+        <Card variant="outlined" sx={{ borderLeft: "10px solid #ca8a04" }}>
+          <CardActionArea onClick={openWhatToChoose} sx={{ p: 2.5, minHeight: 140 }}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box
+                sx={{
+                  width: 72,
+                  height: 72,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                <HelpOutlineIcon sx={{ fontSize: 48, color: "#ca8a04" }} />
+              </Box>
+              <Box>
+                <Typography variant="h6">{t("drive.whatToChoose")}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {t("drive.whatToChooseHint")}
+                </Typography>
+              </Box>
+            </Stack>
+          </CardActionArea>
+        </Card>
         {DEVICE_OPTIONS.map((opt) => (
           <Card key={opt.id} variant="outlined">
             <CardActionArea onClick={() => onPick(opt.id)} sx={{ p: 2.5, minHeight: 140 }}>
@@ -847,7 +1014,6 @@ function AdvancedDevicePicker({
     </Box>
   );
 }
-
 function EnterPairingStep({
   device,
   variant,
@@ -956,6 +1122,196 @@ function EnterPairingStep({
   );
 }
 
+const WLANMAUS_STEP_COMPONENTS = {
+  strong: <strong />,
+  menu: <strong />,
+  ok: <strong />,
+};
+
+function WlanmausWifiStep({
+  needsSetup,
+  setup,
+  setupLoading,
+  stationsLoading,
+  onYes,
+  onNo,
+  onContinue,
+  onBack,
+}: {
+  needsSetup: boolean | null;
+  setup: HandsetSetup | null;
+  setupLoading: boolean;
+  stationsLoading: boolean;
+  onYes: () => void;
+  onNo: () => void;
+  onContinue: () => void;
+  onBack: () => void;
+}) {
+  const { t } = useTranslation();
+  const z21Ip = setup?.bigfredIpv4 ?? setup?.bigfredHost ?? "—";
+  const passwordDisplay =
+    setup?.wifiPsk?.trim() ? setup.wifiPsk : t("drive.wlanmaus.wifiOpenNetwork");
+
+  const wifiSteps: NumberedStep[] = Array.from({ length: 11 }, (_, i) => ({
+    body: (
+      <Trans
+        i18nKey={`drive.wlanmaus.wifiSteps.${i + 1}`}
+        values={{
+          ssid: setup?.wifiSsid ?? "—",
+          password: passwordDisplay,
+          z21Ip,
+        }}
+        components={WLANMAUS_STEP_COMPONENTS}
+      />
+    ),
+  }));
+
+  return (
+    <Box>
+      <Typography variant="h5" sx={{ mb: 3 }}>
+        {t("drive.wlanmaus.wifiQuestion")}
+      </Typography>
+      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+        <Button
+          variant={needsSetup === false ? "contained" : "outlined"}
+          onClick={onYes}
+          disabled={stationsLoading}
+        >
+          {stationsLoading ? <CircularProgress size={22} color="inherit" /> : t("drive.wlanmaus.wifiYes")}
+        </Button>
+        <Button
+          variant={needsSetup === true ? "contained" : "outlined"}
+          onClick={onNo}
+        >
+          {t("drive.wlanmaus.wifiNo")}
+        </Button>
+      </Stack>
+
+      {needsSetup === true && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            {t("drive.wlanmaus.wifiCredentialsTitle")}
+          </Typography>
+          {setupLoading || !setup ? (
+            <CircularProgress />
+          ) : (
+            <>
+              <Typography sx={{ mb: 0.5 }}>
+                <strong>{t("drive.wlanmaus.wifiSsid")}:</strong> {setup.wifiSsid}
+              </Typography>
+              <Typography sx={{ mb: 0.5 }}>
+                <strong>{t("drive.wlanmaus.wifiPassword")}:</strong> {passwordDisplay}
+              </Typography>
+              <Typography sx={{ mb: 2 }}>
+                <strong>{t("drive.wlanmaus.wifiZ21Ip")}:</strong> {z21Ip}
+              </Typography>
+              <NumberedSteps steps={wifiSteps} />
+            </>
+          )}
+        </Box>
+      )}
+
+      <Stack direction="row" justifyContent="space-between">
+        <Button variant="outlined" onClick={onBack}>
+          {t("app.back")}
+        </Button>
+        {needsSetup === true && (
+          <Button
+            variant="contained"
+            disabled={setupLoading || !setup || stationsLoading}
+            onClick={onContinue}
+          >
+            {t("app.next")}
+          </Button>
+        )}
+      </Stack>
+    </Box>
+  );
+}
+
+function WlanmausDriveModeStep({
+  onBack,
+  onContinue,
+  busy,
+}: {
+  onBack: () => void;
+  onContinue: () => void;
+  busy: boolean;
+}) {
+  const { t } = useTranslation();
+  const steps: NumberedStep[] = Array.from({ length: 5 }, (_, i) => ({
+    body: (
+      <Trans
+        i18nKey={`drive.wlanmaus.driveModeSteps.${i + 1}`}
+        components={WLANMAUS_STEP_COMPONENTS}
+      />
+    ),
+  }));
+
+  return (
+    <Box>
+      <Typography variant="h5" sx={{ mb: 3 }}>
+        {t("drive.wlanmaus.driveModeTitle")}
+      </Typography>
+      <NumberedSteps steps={steps} />
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+        <Button variant="outlined" onClick={onBack}>
+          {t("app.back")}
+        </Button>
+        <Button variant="contained" disabled={busy} onClick={onContinue}>
+          {busy ? <CircularProgress size={22} color="inherit" /> : t("app.next")}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+function WlanmausLocoListStep({
+  vehicles,
+  onDone,
+}: {
+  vehicles: Vehicle[] | null;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Box>
+      <Typography variant="h5" sx={{ mb: 1 }}>
+        {t("drive.wlanmaus.locoListTitle")}
+      </Typography>
+      <Typography color="text.secondary" sx={{ mb: 2 }}>
+        {t("drive.wlanmaus.locoListHint")}
+      </Typography>
+      {vehicles === null ? (
+        <CircularProgress />
+      ) : vehicles.length === 0 ? (
+        <Alert severity="info">{t("drive.noLocos")}</Alert>
+      ) : (
+        <ChoiceList maxHeight={420}>
+          {vehicles.map((v) => (
+            <ChoiceOption
+              key={v.id}
+              selected={false}
+              onClick={() => {}}
+              primary={v.name}
+              secondary={
+                v.dccAddress != null
+                  ? t("drive.locoAddress", { address: v.dccAddress })
+                  : t("drive.locoNoAddress")
+              }
+            />
+          ))}
+        </ChoiceList>
+      )}
+      <Stack direction="row" justifyContent="flex-end" sx={{ mt: 4 }}>
+        <Button variant="contained" onClick={onDone}>
+          {t("app.finish")}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
 function ScanStep({
   candidates,
   busy,
@@ -1009,7 +1365,6 @@ function ScanStep({
     </Box>
   );
 }
-
 function ProgrammingProgress({ frame }: { frame: JobFrame | null }) {
   const { t } = useTranslation();
   const state: JobState = frame?.state ?? "queued";
@@ -1097,6 +1452,7 @@ function PhoneQrStep({
   );
 }
 
+
 function PhoneDriveStep({ onDone, onBack }: { onDone: () => void; onBack: () => void }) {
   const { t } = useTranslation();
   const steps: NumberedStep[] = [1, 2, 3, 4].map((n) => ({
@@ -1119,7 +1475,6 @@ function PhoneDriveStep({ onDone, onBack }: { onDone: () => void; onBack: () => 
     </Box>
   );
 }
-
 function PairingStep({
   device,
   pairing,
@@ -1160,6 +1515,12 @@ function PairingStep({
         </Stack>
       )}
 
+      {device === "wlanmaus" && (
+        <Typography sx={{ mb: 2, fontSize: "1.1rem" }}>
+          {t("drive.wlanmaus.pairingLead")}
+        </Typography>
+      )}
+
       <NumberedSteps steps={steps} />
 
       {!paired && (
@@ -1186,6 +1547,7 @@ function PairingStep({
   );
 }
 
+
 function buildPairingSteps(
   device: DriveDevice,
   digits: string,
@@ -1205,18 +1567,7 @@ function buildPairingSteps(
   }));
 
   if (device === "wlanmaus") {
-    return [
-      {
-        body: t("drive.steps.powerOnWlanmaus"),
-        imageSrc: WLANMAUS_ASSETS.ok,
-        imageAlt: "OK",
-      },
-      {
-        body: t("drive.steps.openAnyLoco"),
-        imageSrc: WLANMAUS_ASSETS.selectLoco,
-      },
-      ...pressSteps,
-    ];
+    return pressSteps;
   }
 
   if (device === "longfred" || device === "wifred") {
@@ -1298,7 +1649,6 @@ function PickLocoStep({
     </Box>
   );
 }
-
 function HowToEnterStep({
   device,
   loco,

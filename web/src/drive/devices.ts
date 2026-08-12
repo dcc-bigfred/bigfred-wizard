@@ -32,6 +32,10 @@ export function isPhoneDevice(d: DriveDevice): boolean {
   return d === "android" || d === "otherPhone";
 }
 
+export function isWlanmausDevice(d: DriveDevice): boolean {
+  return d === "wlanmaus";
+}
+
 export function protocolForDevice(d: DriveDevice): RemoteProtocol {
   return d === "wlanmaus" ? "z21" : "withrottle";
 }

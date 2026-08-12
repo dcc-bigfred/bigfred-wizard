@@ -14,12 +14,15 @@ import AppShell from "../components/AppShell";
 import ErrorAlert from "../components/ErrorAlert";
 import FlowStepper from "../components/FlowStepper";
 import NumericKeypad from "../components/NumericKeypad";
+import { useHelp } from "../help/HelpContext";
 import { api, ApiError } from "../api/client";
 import type { User } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
 
 const PIN_MIN = 4;
 const PIN_MAX = 6;
+/** ASCII Latin letters only — no digits, spaces, or diacritics (e.g. Polish). */
+const LOGIN_PATTERN = /^[a-zA-Z]+$/;
 
 /** login → pin → pinRepeat → summary → done */
 const FLOW_STEPS = ["login", "pin", "pinRepeat", "summary"] as const;
@@ -28,9 +31,11 @@ export default function CreateAccountPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { config } = useAuth();
+  const { showHelp } = useHelp();
 
   const [step, setStep] = useState(0);
   const [login, setLogin] = useState("");
+  const [organization, setOrganization] = useState("");
   const [pin, setPin] = useState("");
   const [pinRepeat, setPinRepeat] = useState("");
   const [busy, setBusy] = useState(false);
@@ -39,7 +44,9 @@ export default function CreateAccountPage() {
 
   const dccPerUser = config?.dccPerUser ?? 0;
   const normalizedLogin = login.trim().toLowerCase();
-  const loginValid = normalizedLogin.length >= 3;
+  const normalizedOrganization = organization.trim();
+  const loginCharsetOk = login.length === 0 || LOGIN_PATTERN.test(login);
+  const loginValid = normalizedLogin.length >= 3 && LOGIN_PATTERN.test(login);
   const pinValid = pin.length >= PIN_MIN && pin.length <= PIN_MAX;
   const pinRepeatValid = pinRepeat.length >= PIN_MIN && pinRepeat.length <= PIN_MAX;
   const pinsMatch = pin === pinRepeat;
@@ -54,6 +61,7 @@ export default function CreateAccountPage() {
       const user = await api.createUser({
         login: normalizedLogin,
         pin,
+        organization: normalizedOrganization || undefined,
         autoAllocateDccCount: dccPerUser,
       });
       setCreated(user);
@@ -67,6 +75,7 @@ export default function CreateAccountPage() {
 
   const reset = () => {
     setLogin("");
+    setOrganization("");
     setPin("");
     setPinRepeat("");
     setCreated(null);
@@ -133,12 +142,25 @@ export default function CreateAccountPage() {
               helperText={t("account.loginHint")}
               value={login}
               autoFocus
+              error={login.length > 0 && !loginValid}
               onChange={(e) => {
                 setLogin(e.target.value.replace(/\s+/g, ""));
                 setError(null);
               }}
             />
-            {!loginValid && login.length > 0 && (
+            <TextField
+              label={t("account.organizationLabel")}
+              helperText={t("account.organizationHint")}
+              value={organization}
+              sx={{ mt: 2 }}
+              onChange={(e) => setOrganization(e.target.value)}
+            />
+            {login.length > 0 && !loginCharsetOk && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                {t("account.loginInvalidChars")}
+              </Alert>
+            )}
+            {login.length > 0 && loginCharsetOk && normalizedLogin.length < 3 && (
               <Alert severity="warning" sx={{ mt: 2 }}>
                 {t("account.loginTooShort")}
               </Alert>
@@ -191,6 +213,11 @@ export default function CreateAccountPage() {
         {step === 3 && (
           <Box>
             <Typography variant="h6">{login}</Typography>
+            {normalizedOrganization && (
+              <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                {t("account.summaryOrganization", { organization: normalizedOrganization })}
+              </Typography>
+            )}
             <Typography color="text.secondary" sx={{ mt: 1 }}>
               {t("account.summaryLead", { count: dccPerUser })}
             </Typography>
@@ -220,9 +247,16 @@ export default function CreateAccountPage() {
         <Stack direction="row" spacing={2} sx={{ mt: 4 }} justifyContent="space-between">
           {step < 4 ? (
             <>
-              <Button variant="outlined" onClick={goBack} disabled={busy}>
-                {step === 0 ? t("app.cancel") : t("app.back")}
-              </Button>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                <Button variant="outlined" onClick={goBack} disabled={busy}>
+                  {step === 0 ? t("app.cancel") : t("app.back")}
+                </Button>
+                {step === 0 && (
+                  <Button variant="text" onClick={() => showHelp(t("account.whyAccountBody"))}>
+                    {t("account.whyAccount")}
+                  </Button>
+                )}
+              </Stack>
               {step < 3 ? (
                 <Button
                   variant="contained"

@@ -240,6 +240,13 @@ impl Config {
         }
     }
 
+    /// Hostname from [`Self::bigfred_public_url`] (no port).
+    pub fn bigfred_public_host(&self) -> Option<String> {
+        url::Url::parse(self.bigfred_public_url.trim())
+            .ok()
+            .and_then(|u| u.host_str().map(str::to_string))
+    }
+
     /// `http://host` → `ws://host` (and `https` → `wss`), without a
     /// trailing slash, for dialling the dcc-bus proxy.
     pub fn bigfred_ws_base(&self) -> String {

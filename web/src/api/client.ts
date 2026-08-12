@@ -19,6 +19,7 @@ import type {
   VehicleTemplate,
   VehicleUpdateInput,
   WizardConfig,
+  HandsetSetup,
 } from "./types";
 
 export const TOKEN_KEY = "bigfred-wizard.token";
@@ -102,6 +103,8 @@ function safeParse(text: string): unknown {
 
 export const api = {
   wizardConfig: () => request<WizardConfig>("/api/v1/wizard/config", { auth: false }),
+
+  handsetSetup: () => request<HandsetSetup>("/api/v1/wizard/handset-setup"),
 
   bigfredVersion: () =>
     request<BigFredVersionInfo>("/api/v1/version", { auth: false }),

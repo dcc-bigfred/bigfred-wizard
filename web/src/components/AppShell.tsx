@@ -133,17 +133,6 @@ export default function AppShell({ title, showBack = false, children }: Props) {
           >
             {fullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
           </Button>
-          {token && (
-            <Button
-              color="inherit"
-              aria-label={t("app.logout")}
-              title={t("app.logout")}
-              onClick={() => logout()}
-              sx={{ minWidth: 40, px: 1 }}
-            >
-              <LogoutIcon />
-            </Button>
-          )}
         </Toolbar>
       </AppBar>
       <Container
@@ -169,23 +158,53 @@ export default function AppShell({ title, showBack = false, children }: Props) {
         )}
         {children}
       </Container>
-      {!onAbout && (
-        <Fab
-          color="primary"
-          size="medium"
-          aria-label={t("about.open")}
-          title={t("about.open")}
-          onClick={() => navigate("/about")}
-          sx={{
-            position: "fixed",
-            left: { xs: 12, sm: 20 },
-            bottom: { xs: 12, sm: 20 },
-            zIndex: 20,
-          }}
-        >
-          <SettingsIcon />
-        </Fab>
-      )}
+      <Box
+        sx={{
+          position: "fixed",
+          left: { xs: 12, sm: 20 },
+          bottom: { xs: 12, sm: 20 },
+          zIndex: 20,
+          display: "flex",
+          gap: 1,
+        }}
+      >
+        {!onAbout && (
+          <Fab
+            color="primary"
+            size="small"
+            aria-label={t("about.open")}
+            title={t("about.open")}
+            onClick={() => navigate("/about")}
+            sx={{
+              width: 28,
+              height: 28,
+              minHeight: 28,
+              opacity: 0.5,
+              "& .MuiSvgIcon-root": { fontSize: 16 },
+            }}
+          >
+            <SettingsIcon />
+          </Fab>
+        )}
+        {token && (
+          <Fab
+            color="primary"
+            size="small"
+            aria-label={t("app.logout")}
+            title={t("app.logout")}
+            onClick={() => logout()}
+            sx={{
+              width: 28,
+              height: 28,
+              minHeight: 28,
+              opacity: 0.5,
+              "& .MuiSvgIcon-root": { fontSize: 16 },
+            }}
+          >
+            <LogoutIcon />
+          </Fab>
+        )}
+      </Box>
     </Box>
   );
 }
