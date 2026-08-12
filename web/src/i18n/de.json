@@ -197,8 +197,9 @@
         "done": "Fertig"
       },
       "whoDrives": "Wer soll mit diesem Regler fahren?",
-      "pinWifredTitle": "Gib deinen 6-stelligen BigFred-Kopplungscode ein",
-      "pinWifredHint": "Derselbe Code wie bei der Kontoanlage.",
+      "pinWifredTitle": "Gib deinen BigFred-PIN ein",
+      "pinWifredHint": "Derselbe PIN wie bei der BigFred-Anmeldung.",
+      "pinInvalid": "Falscher PIN. Bitte erneut versuchen.",
       "pinLongfredTitle": "Gib deinen BigFred-PIN ein",
       "pinLongfredHint": "Derselbe PIN wie bei der BigFred-Anmeldung.",
       "pinContinue": "Weiter",

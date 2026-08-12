@@ -15,6 +15,7 @@ mod ensure_client;
 mod error;
 mod handset_api;
 mod oauth_proxy;
+mod pin_api;
 mod programming_api;
 mod qr;
 mod wireless_api;
@@ -233,6 +234,7 @@ fn router(state: AppState, cors_enabled: bool, cors_origins: &[String]) -> Route
         .route("/api/v1/wizard/handset-setup", get(handset_api::setup))
         .route("/api/v1/wizard/qr.svg", get(qr::qr_svg))
         .route("/api/v1/wizard/oauth/token", post(oauth_proxy::token))
+        .route("/api/v1/wizard/verify-pin", post(pin_api::verify_pin))
         .route(
             "/api/v1/wizard/programming/cvs/read",
             post(programming_api::cvs_read),

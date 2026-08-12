@@ -106,6 +106,13 @@ export const api = {
 
   handsetSetup: () => request<HandsetSetup>("/api/v1/wizard/handset-setup"),
 
+  /** Check a participant PIN without storing a driver session. */
+  verifyPin: (login: string, pin: string, layoutId: number) =>
+    request<void>("/api/v1/wizard/verify-pin", {
+      method: "POST",
+      body: { login, pin, layoutId },
+    }),
+
   bigfredVersion: () =>
     request<BigFredVersionInfo>("/api/v1/version", { auth: false }),
 

@@ -197,8 +197,9 @@
         "done": "Gotowe"
       },
       "whoDrives": "Kto będzie jeździć tym pilotem?",
-      "pinWifredTitle": "Wpisz swój 6-cyfrowy kod parowania BigFred",
-      "pinWifredHint": "Ten sam kod, który dostałeś przy zakładaniu konta.",
+      "pinWifredTitle": "Wpisz swój kod PIN BigFred",
+      "pinWifredHint": "Ten sam PIN, którym logujesz się do BigFred.",
+      "pinInvalid": "Nieprawidłowy PIN. Spróbuj ponownie.",
       "pinLongfredTitle": "Wpisz swój kod PIN BigFred",
       "pinLongfredHint": "Ten sam PIN, którym logujesz się do BigFred.",
       "pinContinue": "Dalej",

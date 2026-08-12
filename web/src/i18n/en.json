@@ -197,8 +197,9 @@
         "done": "Done"
       },
       "whoDrives": "Who will drive with this handset?",
-      "pinWifredTitle": "Enter your 6-digit BigFred pairing code",
-      "pinWifredHint": "The same code you got when the account was created.",
+      "pinWifredTitle": "Enter your BigFred PIN",
+      "pinWifredHint": "The same PIN you use to sign in to BigFred.",
+      "pinInvalid": "Incorrect PIN. Try again.",
       "pinLongfredTitle": "Enter your BigFred PIN",
       "pinLongfredHint": "The same PIN you use to sign in to BigFred.",
       "pinContinue": "Continue",

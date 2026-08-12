@@ -112,6 +112,7 @@ export default function DriveFlowPage() {
   const [pickedLoco, setPickedLoco] = useState<Vehicle | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   // Wireless-programmer state
   const [pin, setPin] = useState("");
@@ -184,9 +185,13 @@ export default function DriveFlowPage() {
       wpFailed: "programming",
     };
     const key = map[phase];
-    const idx = stepperLabels.indexOf(key);
+    const resolved =
+      (phase === "station" || phase === "rePairConfirm") && device === "wifred"
+        ? "pin"
+        : key;
+    const idx = stepperLabels.indexOf(resolved);
     return idx < 0 ? 0 : idx;
-  }, [phase, stepperLabels]);
+  }, [phase, stepperLabels, device]);
 
   const stepLabel = (key: string) => {
     const programKey = `drive.program.steps.${key}`;
@@ -211,7 +216,8 @@ export default function DriveFlowPage() {
   };
 
   useEffect(() => {
-    if (!me || !device || isPhoneDevice(device) || isWirelessProgramDevice(device)) {
+    // LongFred Soft-AP does not need a command station; WiFred needs WiThrottle for pairing.
+    if (!me || !device || isPhoneDevice(device) || device === "longfred") {
       return;
     }
     let cancelled = false;
@@ -286,6 +292,11 @@ export default function DriveFlowPage() {
     try {
       await api.unpairSession(me.layoutId, station.id, user.login, existingClientKey);
       setExistingClientKey(undefined);
+      if (device === "wifred") {
+        setPhase("wpEnterPairing");
+        setBusy(false);
+        return;
+      }
       await startPairing(user, station, device);
     } catch (err) {
       setError(err);
@@ -299,6 +310,64 @@ export default function DriveFlowPage() {
     setUser(null);
     setBusy(false);
     setError(null);
+    setPinError(null);
+  };
+
+  /** After PIN: check for an existing WiThrottle session, then Soft-AP. */
+  const continueWifredAfterPin = useCallback(
+    async (picked: User, cs: CommandStation) => {
+      if (!me) return;
+      setBusy(true);
+      setError(null);
+      setStation(cs);
+      try {
+        const status = await api.remoteStatus(me.layoutId, cs.id, picked.login);
+        if (status.paired) {
+          setExistingClientKey(status.clientKey);
+          setPhase("rePairConfirm");
+          return;
+        }
+        setExistingClientKey(undefined);
+        setPhase("wpEnterPairing");
+      } catch (err) {
+        setError(err);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [me],
+  );
+
+  const submitWifredPin = async (value: string) => {
+    if (!me || !user) return;
+    setBusy(true);
+    setPinError(null);
+    setError(null);
+    try {
+      await api.verifyPin(user.login, value, me.layoutId);
+      setPin(value);
+      if (stations === null) {
+        setError(new ApiError(503, "stations_loading"));
+        return;
+      }
+      if (stations.length === 0) {
+        setError(new ApiError(422, "no_programming_station"));
+        return;
+      }
+      if (stations.length === 1 && stations[0]) {
+        await continueWifredAfterPin(user, stations[0]);
+        return;
+      }
+      setPhase("station");
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.code === "invalid_credentials")) {
+        setPinError(t("drive.program.pinInvalid"));
+      } else {
+        setError(err);
+      }
+    } finally {
+      setBusy(false);
+    }
   };
 
   const proceedToWlanmausPairing = useCallback(() => {
@@ -432,6 +501,7 @@ export default function DriveFlowPage() {
       setPhase("railboxAppQr");
       return;
     }
+    setPinError(null);
   };
 
   useEffect(() => {
@@ -586,15 +656,39 @@ export default function DriveFlowPage() {
     setError(null);
     setJobFrame(null);
     setPhase("wpProgramming");
+
+    let wifredPairingCsId: number | null = null;
     try {
-      const identity =
-        device === "wifred" ? pin : generateLongfredIdentity();
       const roster = rosterFromVehicles(vehicles, rosterIds).map((r) => ({
         address: r.address,
         longAddress: r.longAddress,
         direction: r.direction,
         functions: r.functions,
       }));
+
+      let identity: string;
+      if (device === "wifred") {
+        if (!me || !station) {
+          throw new ApiError(422, "no_programming_station");
+        }
+        const pending = await api.startPairing(
+          me.layoutId,
+          station.id,
+          "withrottle",
+          user.login,
+          { allowAllVehicles: true, vehicleIds: [] },
+        );
+        setPairing(pending);
+        const code = pending.pairingCode?.replace(/\D/g, "") ?? "";
+        if (code.length !== 6) {
+          throw new ApiError(500, "pairing_code_missing");
+        }
+        identity = code;
+        wifredPairingCsId = station.id;
+      } else {
+        identity = generateLongfredIdentity();
+      }
+
       const result = await wirelessApi.program({
         candidate: { driver: candidate.driver, key: candidate.key },
         identity,
@@ -611,10 +705,16 @@ export default function DriveFlowPage() {
       if (terminal.state === "done") {
         setPhase("wpDone");
       } else {
+        if (wifredPairingCsId != null && me) {
+          await api.cancelPairing(me.layoutId, wifredPairingCsId, user.login).catch(() => undefined);
+        }
         setFailDetail(terminal.detail ?? friendlyWirelessError(null, t));
         setPhase("wpFailed");
       }
     } catch (err) {
+      if (wifredPairingCsId != null && me && user) {
+        await api.cancelPairing(me.layoutId, wifredPairingCsId, user.login).catch(() => undefined);
+      }
       setFailDetail(friendlyWirelessError(err, t));
       setPhase("wpFailed");
     } finally {
@@ -759,7 +859,6 @@ export default function DriveFlowPage() {
 
         {phase === "wpPin" && device && (
           <PinDialog
-            exact={device === "wifred" ? 6 : undefined}
             minLength={4}
             maxLength={6}
             title={
@@ -772,9 +871,15 @@ export default function DriveFlowPage() {
                 ? t("drive.program.pinWifredHint")
                 : t("drive.program.pinLongfredHint")
             }
+            busy={busy}
+            error={device === "wifred" ? pinError : null}
             onSubmit={(value) => {
-              setPin(value);
-              setPhase("wpEnterPairing");
+              if (device === "wifred") {
+                void submitWifredPin(value);
+              } else {
+                setPin(value);
+                setPhase("wpEnterPairing");
+              }
             }}
           />
         )}
@@ -899,6 +1004,7 @@ export default function DriveFlowPage() {
                 onClick={() => {
                   if (device === "wlanmaus") setPhase("wlanmausWifi");
                   else if (device === "railbox") setPhase("railboxPairingSetup");
+                  else if (device === "wifred") setPhase("wpPin");
                   else void cancel();
                 }}
               >
@@ -907,7 +1013,14 @@ export default function DriveFlowPage() {
               <Button
                 variant="contained"
                 disabled={!station || busy}
-                onClick={() => station && void beginPairing(user, station, device)}
+                onClick={() => {
+                  if (!station || !user || !device) return;
+                  if (device === "wifred") {
+                    void continueWifredAfterPin(user, station);
+                  } else {
+                    void beginPairing(user, station, device);
+                  }
+                }}
               >
                 {t("drive.startPairing")}
               </Button>
