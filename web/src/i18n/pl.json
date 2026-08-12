@@ -91,6 +91,9 @@
       "wifi": "Wi‑Fi",
       "pairing": "Parowanie",
       "driveMode": "Tryb jazdy",
+      "app": "Aplikacja",
+      "connect": "Połączenie",
+      "pairSetup": "Lok parowania",
       "loco": "Lokomotywa",
       "howto": "Instrukcja"
     },
@@ -128,6 +131,31 @@
       "locoListTitle": "Twoje lokomotywy",
       "locoListHint": "Oto lista lokomotyw wraz z adresami DCC. Na WlanMausie strzałkami w lewo i w prawo zmieniasz adres DCC, aby przełączyć lokomotywę."
     },
+    "railbox": {
+      "appQrTitle": "Pobierz RailBOX: Railroad Control",
+      "appQrLead": "Zeskanuj kod QR aparatem telefonu — przeniesie Cię do Google Play.",
+      "connectTitle": "Połącz aplikację z BigFred",
+      "connectIp": "Adres IP BigFred",
+      "connectSteps": {
+        "1": "Kliknij ikonę kołowrotka w prawym górnym rogu menu",
+        "2": "W polu „IP Adres” wpisz <strong>{{z21Ip}}</strong>",
+        "3": "Kliknij „Połącz ponownie”"
+      },
+      "pairSetupTitle": "Utwórz lokomotywę parowania w aplikacji",
+      "pairSetupSteps": {
+        "1": "Kliknij zakładkę z listą lokomotyw (ikona lokomotywy)",
+        "2": "Kliknij na obrazek",
+        "3": "Gdy pojawi się lista, kliknij na dole przycisk Plus (+)",
+        "4": "W nazwie pojazdu wpisz „Parowanie”",
+        "5": "W adresie wpisz „3”",
+        "6": "Zaznacz funkcje od 0 do 9",
+        "7": "Kliknij „ZASTOSUJ”"
+      },
+      "pairingLead": "Wybierz lokomotywę „Parowanie” i wpisz kod parowania klawiszami numerycznymi:",
+      "pressKey": "Wciśnij klawisz <strong>{{key}}</strong>",
+      "locoListTitle": "Twoje lokomotywy",
+      "locoListHint": "Każdą lokomotywę z listy musisz dodać osobno w aplikacji RailBOX Railroad Control, pamiętając o adresie DCC."
+    },
     "devices": {
       "android": {
         "title": "BigFred na Androidzie (tablet/telefon)",
@@ -147,7 +175,7 @@
       },
       "longfred": {
         "title": "LongFred",
-        "hint": "Fizyczny manipulator do jazdy"
+        "hint": "Dedykowany kontroler zaprojektowany z myślą o BigFred"
       },
       "wifred": {
         "title": "WiFred (Heiko Rosemann)",

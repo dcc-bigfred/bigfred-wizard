@@ -91,6 +91,9 @@
       "wifi": "Wi‑Fi",
       "pairing": "Pairing",
       "driveMode": "Drive mode",
+      "app": "App",
+      "connect": "Connection",
+      "pairSetup": "Pairing loco",
       "loco": "Locomotive",
       "howto": "How-to"
     },
@@ -128,6 +131,31 @@
       "locoListTitle": "Your locomotives",
       "locoListHint": "Here is your locomotive list with DCC addresses. On the WlanMaus, use the left and right arrows to change the DCC address and switch locomotives."
     },
+    "railbox": {
+      "appQrTitle": "Get RailBOX: Railroad Control",
+      "appQrLead": "Scan the QR code with your phone camera — it will open Google Play.",
+      "connectTitle": "Connect the app to BigFred",
+      "connectIp": "BigFred IP address",
+      "connectSteps": {
+        "1": "Tap the gear icon in the top-right corner of the menu",
+        "2": "In the “IP Address” field enter <strong>{{z21Ip}}</strong>",
+        "3": "Tap “Reconnect”"
+      },
+      "pairSetupTitle": "Create the pairing locomotive in the app",
+      "pairSetupSteps": {
+        "1": "Open the locomotive list tab (locomotive icon)",
+        "2": "Tap the image",
+        "3": "When the list appears, tap the Plus (+) button at the bottom",
+        "4": "Enter “Parowanie” as the vehicle name",
+        "5": "Enter “3” as the address",
+        "6": "Select functions 0 through 9",
+        "7": "Tap “APPLY”"
+      },
+      "pairingLead": "Select the “Parowanie” locomotive and enter the pairing code with the numeric keys:",
+      "pressKey": "Press key <strong>{{key}}</strong>",
+      "locoListTitle": "Your locomotives",
+      "locoListHint": "Add each locomotive from this list separately in the RailBOX Railroad Control app, using the correct DCC address."
+    },
     "devices": {
       "android": {
         "title": "BigFred on Android (phone/tablet)",
@@ -147,7 +175,7 @@
       },
       "longfred": {
         "title": "LongFred",
-        "hint": "Physical throttle handset"
+        "hint": "Dedicated controller designed for BigFred"
       },
       "wifred": {
         "title": "WiFred (Heiko Rosemann)",

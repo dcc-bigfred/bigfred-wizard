@@ -3,9 +3,9 @@ import type { ComponentType } from "react";
 import androidLogo from "../assets/drive/android.svg";
 import googlePlayLogo from "../assets/drive/google-play.svg";
 import otherPhoneLogo from "../assets/drive/other-phone.svg";
-import railboxLogo from "../assets/drive/railbox.svg";
+import railboxLogo from "../assets/drive/railbox.webp";
 import handsetLogo from "../assets/drive/handset.svg";
-import wlanmausProduct from "../assets/drive/wlanmaus/product.svg";
+import wlanmausLogo from "../logos/roco-wlanmaus.png";
 import wlanmausOk from "../assets/drive/wlanmaus/ok-key.svg";
 import wlanmausSelectLoco from "../assets/drive/wlanmaus/select-loco.svg";
 import wlanmausFnKeys from "../assets/drive/wlanmaus/function-keys.svg";
@@ -36,8 +36,12 @@ export function isWlanmausDevice(d: DriveDevice): boolean {
   return d === "wlanmaus";
 }
 
+export function isRailboxDevice(d: DriveDevice): boolean {
+  return d === "railbox";
+}
+
 export function protocolForDevice(d: DriveDevice): RemoteProtocol {
-  return d === "wlanmaus" ? "z21" : "withrottle";
+  return d === "wlanmaus" || d === "railbox" ? "z21" : "withrottle";
 }
 
 export interface DeviceOption {
@@ -50,7 +54,7 @@ export interface DeviceOption {
 export const DEVICE_OPTIONS: DeviceOption[] = [
   { id: "android", image: androidLogo, badge: googlePlayLogo },
   { id: "otherPhone", image: otherPhoneLogo },
-  { id: "wlanmaus", image: wlanmausProduct },
+  { id: "wlanmaus", image: wlanmausLogo },
   { id: "railbox", image: railboxLogo },
   { id: "longfred", image: longfredMarkwtechLogo },
   { id: "wifred", image: wifredLogo },

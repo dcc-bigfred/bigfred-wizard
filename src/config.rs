@@ -236,6 +236,10 @@ impl Config {
                 }
             }
             "bigfred" => Some(trim_slash(&self.bigfred_public_url)),
+            "railbox" => Some(
+                "https://play.google.com/store/apps/details?id=com.railbox.railroadcontrol&hl=en"
+                    .to_string(),
+            ),
             _ => None,
         }
     }

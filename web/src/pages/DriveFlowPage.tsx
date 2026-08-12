@@ -38,6 +38,7 @@ import {
   DEVICE_OPTIONS,
   howToEnterKey,
   isPhoneDevice,
+  isRailboxDevice,
   isWirelessProgramDevice,
   isWlanmausDevice,
   LONGFRED_VARIANTS,
@@ -62,6 +63,10 @@ type Phase =
   | "wlanmausWifi"
   | "wlanmausDriveMode"
   | "wlanmausLocoList"
+  | "railboxAppQr"
+  | "railboxConnect"
+  | "railboxPairingSetup"
+  | "railboxLocoList"
   | "pickLoco"
   | "howToEnter"
   // Wireless-programmer flow (WiFred / LongFred):
@@ -145,6 +150,9 @@ export default function DriveFlowPage() {
     if (isWlanmausDevice(device)) {
       return ["device", "user", "wifi", "pairing", "driveMode", "loco"];
     }
+    if (isRailboxDevice(device)) {
+      return ["device", "user", "app", "connect", "pairSetup", "pairing", "loco"];
+    }
     return ["device", "user", "pairing", "loco", "howto"];
   }, [device]);
 
@@ -161,6 +169,10 @@ export default function DriveFlowPage() {
       wlanmausWifi: "wifi",
       wlanmausDriveMode: "driveMode",
       wlanmausLocoList: "loco",
+      railboxAppQr: "app",
+      railboxConnect: "connect",
+      railboxPairingSetup: "pairSetup",
+      railboxLocoList: "loco",
       pickLoco: "loco",
       howToEnter: "howto",
       wpPin: "pin",
@@ -309,6 +321,26 @@ export default function DriveFlowPage() {
     setPhase("station");
   }, [user, device, stations, beginPairing]);
 
+  const proceedToRailboxPairing = useCallback(() => {
+    if (!user || !device || !isRailboxDevice(device)) {
+      return;
+    }
+    setError(null);
+    if (stations === null) {
+      return;
+    }
+    if (stations.length === 0) {
+      setError(new ApiError(422, "no_programming_station"));
+      return;
+    }
+    if (stations.length === 1 && stations[0]) {
+      setStation(stations[0]);
+      void beginPairing(user, stations[0], device);
+      return;
+    }
+    setPhase("station");
+  }, [user, device, stations, beginPairing]);
+
   const loadHandsetSetup = useCallback(async () => {
     setHandsetSetupLoading(true);
     setError(null);
@@ -355,6 +387,27 @@ export default function DriveFlowPage() {
     }
   };
 
+  const goToRailboxLocoList = async () => {
+    if (!user) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const list = await api.vehicles(user.login);
+      setVehicles(
+        list.filter(
+          (v) =>
+            (v.ownerLogin != null && v.ownerLogin === user.login) ||
+            (v.ownerId != null && v.ownerId === user.id),
+        ),
+      );
+      setPhase("railboxLocoList");
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onUserPicked = (picked: User) => {
     setUser(picked);
     setBusy(true);
@@ -374,11 +427,30 @@ export default function DriveFlowPage() {
       setPhase("wlanmausWifi");
       return;
     }
+    if (device && isRailboxDevice(device)) {
+      setBusy(false);
+      setPhase("railboxAppQr");
+      return;
+    }
   };
+
+  useEffect(() => {
+    if (phase === "railboxConnect" && !handsetSetup && !handsetSetupLoading) {
+      void loadHandsetSetup();
+    }
+  }, [phase, handsetSetup, handsetSetupLoading, loadHandsetSetup]);
 
   // After the participant is chosen, auto-start pairing (one CS) or ask which CS.
   useEffect(() => {
-    if (!user || !device || isPhoneDevice(device) || isWirelessProgramDevice(device) || isWlanmausDevice(device) || pairing) {
+    if (
+      !user ||
+      !device ||
+      isPhoneDevice(device) ||
+      isWirelessProgramDevice(device) ||
+      isWlanmausDevice(device) ||
+      isRailboxDevice(device) ||
+      pairing
+    ) {
       return;
     }
     if (stations === null) {
@@ -654,6 +726,37 @@ export default function DriveFlowPage() {
           />
         )}
 
+        {phase === "railboxLocoList" && (
+          <RailboxLocoListStep vehicles={vehicles} onDone={() => navigate("/")} />
+        )}
+
+        {phase === "railboxAppQr" && (
+          <RailboxAppQrStep
+            onNext={() => setPhase("railboxConnect")}
+            onBack={() => {
+              setUser(null);
+              setPhase("user");
+            }}
+          />
+        )}
+
+        {phase === "railboxConnect" && (
+          <RailboxConnectStep
+            setup={handsetSetup}
+            setupLoading={handsetSetupLoading}
+            onBack={() => setPhase("railboxAppQr")}
+            onContinue={() => setPhase("railboxPairingSetup")}
+          />
+        )}
+
+        {phase === "railboxPairingSetup" && (
+          <RailboxPairingSetupStep
+            onBack={() => setPhase("railboxConnect")}
+            onContinue={() => proceedToRailboxPairing()}
+            stationsLoading={stations === null}
+          />
+        )}
+
         {phase === "wpPin" && device && (
           <PinDialog
             exact={device === "wifred" ? 6 : undefined}
@@ -793,7 +896,11 @@ export default function DriveFlowPage() {
             <Stack direction="row" justifyContent="space-between" sx={{ mt: 3 }}>
               <Button
                 variant="outlined"
-                onClick={() => (device === "wlanmaus" ? setPhase("wlanmausWifi") : cancel())}
+                onClick={() => {
+                  if (device === "wlanmaus") setPhase("wlanmausWifi");
+                  else if (device === "railbox") setPhase("railboxPairingSetup");
+                  else void cancel();
+                }}
               >
                 {t("app.back")}
               </Button>
@@ -835,16 +942,18 @@ export default function DriveFlowPage() {
             expired={expired}
             busy={busy}
             onCancel={cancel}
-            onContinue={() =>
-              isWlanmausDevice(device) ? setPhase("wlanmausDriveMode") : void goPickLoco()
-            }
+            onContinue={() => {
+              if (isWlanmausDevice(device)) setPhase("wlanmausDriveMode");
+              else if (isRailboxDevice(device)) void goToRailboxLocoList();
+              else void goPickLoco();
+            }}
             onRetry={() => {
               if (user && station && device) void beginPairing(user, station, device);
             }}
           />
         )}
 
-        {phase === "pickLoco" && device && !isWlanmausDevice(device) && (
+        {phase === "pickLoco" && device && !isWlanmausDevice(device) && !isRailboxDevice(device) && (
           <PickLocoStep
             vehicles={vehicles}
             selected={pickedLoco}
@@ -1168,20 +1277,38 @@ function WlanmausWifiStep({
 
   return (
     <Box>
-      <Typography variant="h5" sx={{ mb: 3 }}>
+      <Typography variant="h5" sx={{ mb: 2 }}>
         {t("drive.wlanmaus.wifiQuestion")}
       </Typography>
-      <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+      <Box
+        component="img"
+        src={DEVICE_OPTIONS.find((o) => o.id === "wlanmaus")?.image}
+        alt=""
+        sx={{ width: 160, height: 160, objectFit: "contain", mb: 3, display: "block", mx: "auto" }}
+      />
+      <Stack direction="row" spacing={2} justifyContent="center" sx={{ mb: 3 }}>
         <Button
-          variant={needsSetup === false ? "contained" : "outlined"}
+          variant="contained"
+          color="success"
           onClick={onYes}
           disabled={stationsLoading}
+          sx={{
+            minWidth: 120,
+            opacity: needsSetup === true ? 0.55 : 1,
+            boxShadow: needsSetup === false ? 4 : 1,
+          }}
         >
           {stationsLoading ? <CircularProgress size={22} color="inherit" /> : t("drive.wlanmaus.wifiYes")}
         </Button>
         <Button
-          variant={needsSetup === true ? "contained" : "outlined"}
+          variant="contained"
+          color="warning"
           onClick={onNo}
+          sx={{
+            minWidth: 120,
+            opacity: needsSetup === false ? 0.55 : 1,
+            boxShadow: needsSetup === true ? 4 : 1,
+          }}
         >
           {t("drive.wlanmaus.wifiNo")}
         </Button>
@@ -1281,6 +1408,184 @@ function WlanmausLocoListStep({
       </Typography>
       <Typography color="text.secondary" sx={{ mb: 2 }}>
         {t("drive.wlanmaus.locoListHint")}
+      </Typography>
+      {vehicles === null ? (
+        <CircularProgress />
+      ) : vehicles.length === 0 ? (
+        <Alert severity="info">{t("drive.noLocos")}</Alert>
+      ) : (
+        <ChoiceList maxHeight={420}>
+          {vehicles.map((v) => (
+            <ChoiceOption
+              key={v.id}
+              selected={false}
+              onClick={() => {}}
+              primary={v.name}
+              secondary={
+                v.dccAddress != null
+                  ? t("drive.locoAddress", { address: v.dccAddress })
+                  : t("drive.locoNoAddress")
+              }
+            />
+          ))}
+        </ChoiceList>
+      )}
+      <Stack direction="row" justifyContent="flex-end" sx={{ mt: 4 }}>
+        <Button variant="contained" onClick={onDone}>
+          {t("app.finish")}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+function RailboxAppQrStep({
+  onNext,
+  onBack,
+}: {
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Box sx={{ textAlign: "center" }}>
+      <Typography variant="h5" sx={{ mb: 1 }}>
+        {t("drive.railbox.appQrTitle")}
+      </Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>
+        {t("drive.railbox.appQrLead")}
+      </Typography>
+      <Box
+        component="img"
+        src="/api/v1/wizard/qr.svg?target=railbox"
+        alt={t("drive.phone.qrAlt")}
+        sx={{
+          width: { xs: 240, sm: 320 },
+          height: { xs: 240, sm: 320 },
+          bgcolor: "#fff",
+          p: 1,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      />
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+        <Button variant="outlined" onClick={onBack}>
+          {t("app.back")}
+        </Button>
+        <Button variant="contained" onClick={onNext}>
+          {t("app.next")}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+function RailboxConnectStep({
+  setup,
+  setupLoading,
+  onBack,
+  onContinue,
+}: {
+  setup: HandsetSetup | null;
+  setupLoading: boolean;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  const { t } = useTranslation();
+  const z21Ip = setup?.bigfredIpv4 ?? setup?.bigfredHost ?? "—";
+  const steps: NumberedStep[] = [1, 2, 3].map((n) => ({
+    body: (
+      <Trans
+        i18nKey={`drive.railbox.connectSteps.${n}`}
+        values={{ z21Ip }}
+        components={{ strong: <strong /> }}
+      />
+    ),
+  }));
+
+  return (
+    <Box>
+      <Typography variant="h5" sx={{ mb: 1 }}>
+        {t("drive.railbox.connectTitle")}
+      </Typography>
+      {setupLoading || !setup ? (
+        <CircularProgress sx={{ my: 3 }} />
+      ) : (
+        <>
+          <Typography sx={{ mb: 2 }}>
+            <strong>{t("drive.railbox.connectIp")}:</strong> {z21Ip}
+          </Typography>
+          <NumberedSteps steps={steps} />
+        </>
+      )}
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+        <Button variant="outlined" onClick={onBack}>
+          {t("app.back")}
+        </Button>
+        <Button
+          variant="contained"
+          disabled={setupLoading || !setup}
+          onClick={onContinue}
+        >
+          {t("app.next")}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+function RailboxPairingSetupStep({
+  onBack,
+  onContinue,
+  stationsLoading,
+}: {
+  onBack: () => void;
+  onContinue: () => void;
+  stationsLoading: boolean;
+}) {
+  const { t } = useTranslation();
+  const steps: NumberedStep[] = Array.from({ length: 7 }, (_, i) => ({
+    body: t(`drive.railbox.pairSetupSteps.${i + 1}`),
+  }));
+
+  return (
+    <Box>
+      <Typography variant="h5" sx={{ mb: 3 }}>
+        {t("drive.railbox.pairSetupTitle")}
+      </Typography>
+      <NumberedSteps steps={steps} />
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+        <Button variant="outlined" onClick={onBack}>
+          {t("app.back")}
+        </Button>
+        <Button
+          variant="contained"
+          disabled={stationsLoading}
+          onClick={onContinue}
+        >
+          {stationsLoading ? <CircularProgress size={22} color="inherit" /> : t("app.next")}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+function RailboxLocoListStep({
+  vehicles,
+  onDone,
+}: {
+  vehicles: Vehicle[] | null;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Box>
+      <Typography variant="h5" sx={{ mb: 1 }}>
+        {t("drive.railbox.locoListTitle")}
+      </Typography>
+      <Typography color="text.secondary" sx={{ mb: 2 }}>
+        {t("drive.railbox.locoListHint")}
       </Typography>
       {vehicles === null ? (
         <CircularProgress />
@@ -1521,6 +1826,12 @@ function PairingStep({
         </Typography>
       )}
 
+      {device === "railbox" && (
+        <Typography sx={{ mb: 2, fontSize: "1.1rem" }}>
+          {t("drive.railbox.pairingLead")}
+        </Typography>
+      )}
+
       <NumberedSteps steps={steps} />
 
       {!paired && (
@@ -1557,7 +1868,11 @@ function buildPairingSteps(
     body: (
       <Trans
         i18nKey={
-          device === "wlanmaus" ? "drive.steps.pressWlanmausKey" : "drive.steps.pressF"
+          device === "wlanmaus"
+            ? "drive.steps.pressWlanmausKey"
+            : device === "railbox"
+              ? "drive.railbox.pressKey"
+              : "drive.steps.pressF"
         }
         values={{ key: d, f: `F${d}` }}
         components={{ strong: <strong /> }}
@@ -1566,7 +1881,7 @@ function buildPairingSteps(
     imageSrc: device === "wlanmaus" ? WLANMAUS_ASSETS.functionKeys : undefined,
   }));
 
-  if (device === "wlanmaus") {
+  if (device === "wlanmaus" || device === "railbox") {
     return pressSteps;
   }
 
