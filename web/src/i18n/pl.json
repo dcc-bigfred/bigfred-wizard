@@ -304,7 +304,7 @@
       "driveSteps": {
         "1": "Otwórz aplikację lub stronę BigFred na telefonie.",
         "2": "Zaloguj się loginem i PINem uczestnika (tym samym, które dostał przy zakładaniu konta).",
-        "3": "Na ekranie głównym wybierz manetkę / jazdę (lokomotywy).",
+        "3": "Na ekranie głównym wybierz kontroler jazdy (lokomotywy).",
         "4": "Wybierz swoją lokomotywę z listy i jedź regulatorami na ekranie."
       }
     },
@@ -344,7 +344,7 @@
       "withrottle": {
         "1": "W aplikacji otwórz listę lokomotyw BigFred.",
         "2": "Wybierz lokomotywę o adresie {{address}} ({{name}}).",
-        "3": "Przejdź do manetki i jedź."
+        "3": "Przejdź do kontrolera jazdy i jedź."
       }
     }
   },
