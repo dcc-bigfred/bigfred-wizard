@@ -113,16 +113,19 @@ function fixedZ21Candidate(config: WizardConfig | null | undefined): Candidate |
   return { driver: "fred", key, label: key };
 }
 
+const FRED_KEY_COMPONENTS = {
+  key: <strong />,
+};
+
 export default function DriveFlowPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { me, config } = useAuth();
-  const guestFredStart =
-    searchParams.get("device") === "fred" && searchParams.get("guest") === "1";
+  const fredSkipDevice = searchParams.get("device") === "fred";
 
-  const [phase, setPhase] = useState<Phase>(guestFredStart ? "fredGuestAddress" : "device");
-  const [device, setDevice] = useState<DriveDevice | null>(guestFredStart ? "fred" : null);
+  const [phase, setPhase] = useState<Phase>(fredSkipDevice ? "fredAccountAsk" : "device");
+  const [device, setDevice] = useState<DriveDevice | null>(fredSkipDevice ? "fred" : null);
   const [user, setUser] = useState<User | null>(null);
   const [stations, setStations] = useState<CommandStation[] | null>(null);
   const [station, setStation] = useState<CommandStation | null>(null);
@@ -147,8 +150,7 @@ export default function DriveFlowPage() {
   const [wlanmausWifiNeedsSetup, setWlanmausWifiNeedsSetup] = useState<boolean | null>(null);
   const [handsetSetup, setHandsetSetup] = useState<HandsetSetup | null>(null);
   const [handsetSetupLoading, setHandsetSetupLoading] = useState(false);
-  const [fredGuest, setFredGuest] = useState(guestFredStart);
-  const [fredFromHome, setFredFromHome] = useState(guestFredStart);
+  const [fredGuest, setFredGuest] = useState(false);
   const [fredAddressText, setFredAddressText] = useState("");
 
   const wireless = device != null && isWirelessProgramDevice(device);
@@ -163,9 +165,6 @@ export default function DriveFlowPage() {
     }
     if (isFredProgramDevice(device)) {
       const z21 = skipZ21 ? [] : ["z21"];
-      if (fredFromHome) {
-        return ["address", ...z21, "programming", "askLoco"];
-      }
       if (fredGuest) {
         return ["accountAsk", "address", ...z21, "programming", "askLoco"];
       }
@@ -190,7 +189,7 @@ export default function DriveFlowPage() {
       return ["device", "user", "app", "connect", "pairSetup", "pairing", "loco"];
     }
     return ["device", "user", "pairing", "loco", "howto"];
-  }, [device, fredGuest, fredFromHome, skipZ21]);
+  }, [device, fredGuest, skipZ21]);
 
   const activeStepIndex = useMemo(() => {
     const map: Record<Phase, string> = {
@@ -253,7 +252,6 @@ export default function DriveFlowPage() {
       setPhase("phoneQr");
     } else if (isFredProgramDevice(id)) {
       setFredGuest(false);
-      setFredFromHome(false);
       setPhase("fredAccountAsk");
     } else {
       setPhase("user");
@@ -941,6 +939,10 @@ export default function DriveFlowPage() {
               <Button
                 variant="outlined"
                 onClick={() => {
+                  if (fredSkipDevice) {
+                    navigate("/");
+                    return;
+                  }
                   setDevice(null);
                   setPhase("device");
                 }}
@@ -972,15 +974,11 @@ export default function DriveFlowPage() {
               <Button
                 variant="outlined"
                 onClick={() => {
-                  if (fredFromHome) {
-                    navigate("/");
-                  } else {
-                    setFredGuest(false);
-                    setPhase("fredAccountAsk");
-                  }
+                  setFredGuest(false);
+                  setPhase("fredAccountAsk");
                 }}
               >
-                {fredFromHome ? t("app.cancel") : t("app.back")}
+                {t("app.back")}
               </Button>
               <Button
                 variant="contained"
@@ -1307,19 +1305,16 @@ export default function DriveFlowPage() {
 
         {phase === "fredPlug" && (
           <Box>
-            <Alert
-              severity="info"
-              sx={{
-                mb: 2,
-                "& .MuiAlert-message": {
-                  fontSize: "1.2rem",
-                  fontWeight: 700,
-                  lineHeight: 1.4,
-                },
-              }}
-            >
-              {t("drive.fred.plugLead")}
-            </Alert>
+            <NumberedSteps
+              steps={[1, 2, 3].map((n) => ({
+                body: (
+                  <Trans
+                    i18nKey={`drive.fred.plugSteps.${n}`}
+                    components={FRED_KEY_COMPONENTS}
+                  />
+                ),
+              }))}
+            />
             <Box
               component="img"
               src={fredLogo}
@@ -1331,7 +1326,7 @@ export default function DriveFlowPage() {
                 height: "auto",
                 borderRadius: 2,
                 mx: "auto",
-                mb: 3,
+                my: 3,
               }}
             />
             <Stack direction="row" justifyContent="space-between">
@@ -1359,31 +1354,55 @@ export default function DriveFlowPage() {
         )}
 
         {phase === "fredAskLoco" && (
-          <Box sx={{ textAlign: "center" }}>
-            <Alert severity="success" sx={{ mb: 3, textAlign: "left" }}>
-              <Typography variant="h6">{t("drive.fred.askLocoTitle")}</Typography>
+          <Box>
+            <Alert severity="success" sx={{ mb: 2, textAlign: "left" }}>
+              <Typography sx={{ fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.45 }}>
+                {t("drive.fred.askLocoDone")}
+              </Typography>
             </Alert>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="center">
+            <Alert severity="warning" sx={{ mb: 2, textAlign: "left" }}>
+              <Typography sx={{ fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.45 }}>
+                <Trans i18nKey="drive.fred.askLocoUnplug" components={FRED_KEY_COMPONENTS} />
+              </Typography>
+            </Alert>
+            <Alert severity="info" sx={{ mb: 3, textAlign: "left" }}>
+              <Typography sx={{ fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.45 }}>
+                {t("drive.fred.askLocoTitle")}
+              </Typography>
+            </Alert>
+            <Stack spacing={2} alignItems="center">
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="center">
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    const addr = fredGuest
+                      ? Number(fredAddressText)
+                      : (vehicles?.find((v) => v.id === rosterIds[0])?.dccAddress ?? NaN);
+                    navigate("/flow/loco", {
+                      state: {
+                        fromFred: true,
+                        address: addr,
+                        userLogin: user?.login,
+                        vehicleId: fredGuest ? undefined : rosterIds[0],
+                      },
+                    });
+                  }}
+                >
+                  {t("drive.fred.askLocoYes")}
+                </Button>
+                <Button variant="outlined" onClick={() => navigate("/")}>
+                  {t("drive.fred.askLocoNo")}
+                </Button>
+              </Stack>
               <Button
-                variant="contained"
+                variant="text"
                 onClick={() => {
-                  const addr = fredGuest
-                    ? Number(fredAddressText)
-                    : (vehicles?.find((v) => v.id === rosterIds[0])?.dccAddress ?? NaN);
-                  navigate("/flow/loco", {
-                    state: {
-                      fromFred: true,
-                      address: addr,
-                      userLogin: user?.login,
-                      vehicleId: fredGuest ? undefined : rosterIds[0],
-                    },
-                  });
+                  setFailDetail("");
+                  setJobFrame(null);
+                  setPhase("fredPlug");
                 }}
               >
-                {t("drive.fred.askLocoYes")}
-              </Button>
-              <Button variant="outlined" onClick={() => navigate("/")}>
-                {t("drive.fred.askLocoNo")}
+                {t("drive.fred.askLocoRetry")}
               </Button>
             </Stack>
           </Box>

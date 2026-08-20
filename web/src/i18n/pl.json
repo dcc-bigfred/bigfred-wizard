@@ -46,8 +46,8 @@
       "driveHint": "Telefon, WlanMaus, LongFred, WiFred…",
       "loco": "Skonfiguruj mi lokomotywę",
       "locoHint": "Zadam Ci tylko kilka pytań i gotowe",
-      "fredGuest": "Zaprogramuj przewodowego FRED'a bez konta",
-      "fredGuestHint": "Wpisz adres DCC i włóż FRED-a w LocoNet — bez logowania uczestnika."
+      "fredGuest": "Zaprogramuj przewodowego FRED'a",
+      "fredGuestHint": "Pomogę Ci zaprogramować także starsze przewodowe FRED'y"
     }
   },
   "help": {
@@ -280,10 +280,17 @@
       "z21Title": "Wybierz adres centralki Z21, do której podłączasz FRED'a w gniazdko LocoNet/L-NET/LOCONET-T/LOCONET-B",
       "z21Empty": "Nie znaleziono centralki Z21. Upewnij się, że jest w tej samej sieci, i spróbuj ponownie.",
       "z21Busy": "Szukam centralek Z21…",
-      "plugLead": "Podłącz FRED'a w gniazdko LocoNet — będzie oznaczone jednym z tych symboli: L-NET, LOCONET-T, LOCONET-B i naciśnij Zaprogramuj",
-      "askLocoTitle": "Czy chcesz teraz zaprogramować lokomotywę pod ten adres?",
+      "plugSteps": {
+        "1": "Podłącz FRED'a w gniazdko LocoNet — będzie oznaczone jednym z tych symboli: L-NET, LOCONET-T, LOCONET-B",
+        "2": "Wciśnij kombinację przycisków <key>[SHIFT]</key> + <key>[STOP]</key>, powinna zaświecić się czerwona dioda",
+        "3": "Gdy zaświeci się czerwona lampka, to tutaj w kreatorze naciśnij <key>[Zaprogramuj]</key>"
+      },
+      "askLocoDone": "FRED powinien być już zaprogramowany na wskazany adres.",
+      "askLocoUnplug": "Możesz teraz kombinacją klawiszy <key>[SHIFT]</key> + <key>[STOP]</key> wyjść z trybu programowania i odłączyć FRED'a",
+      "askLocoTitle": "Czy chcesz teraz jeszcze zaprogramować lokomotywę dla tego FRED'a?",
       "askLocoYes": "Tak",
-      "askLocoNo": "Nie, zakończ"
+      "askLocoNo": "Nie, zakończ",
+      "askLocoRetry": "Coś nie poszło, zaprogramuj ponownie FRED'a"
     },
     "phone": {
       "scanPlayTitle": "Zeskanuj kod i pobierz BigFred",

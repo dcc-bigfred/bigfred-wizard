@@ -46,8 +46,8 @@
       "driveHint": "Telefon, WlanMaus, LongFred, WiFred…",
       "loco": "Lokomotive einrichten",
       "locoHint": "DCC-Adresse und Fahrzeugeintrag",
-      "fredGuest": "Kabelgebundenen FRED ohne Konto programmieren",
-      "fredGuestHint": "DCC-Adresse eingeben und den FRED in LocoNet stecken — ohne Teilnehmer-Login."
+      "fredGuest": "Kabelgebundenen FRED programmieren",
+      "fredGuestHint": "Ich helfe dir auch, ältere kabelgebundene FREDs zu programmieren"
     }
   },
   "help": {
@@ -280,10 +280,17 @@
       "z21Title": "Adresse der Z21-Zentrale wählen, in die du den FRED steckst (LocoNet-Buchse L-NET, LOCONET-T oder LOCONET-B)",
       "z21Empty": "Keine Z21-Zentrale gefunden. Prüfe, ob sie im selben Netz ist, und versuche es erneut.",
       "z21Busy": "Suche Z21-Zentralen…",
-      "plugLead": "Stecke den FRED in eine LocoNet-Buchse — gekennzeichnet mit L-NET, LOCONET-T oder LOCONET-B — und drücke Programmieren",
-      "askLocoTitle": "Möchtest du jetzt eine Lokomotive auf diese Adresse programmieren?",
+      "plugSteps": {
+        "1": "Stecke den FRED in eine LocoNet-Buchse — gekennzeichnet mit L-NET, LOCONET-T oder LOCONET-B",
+        "2": "Drücke <key>[SHIFT]</key> + <key>[STOP]</key>; die rote LED sollte aufleuchten",
+        "3": "Wenn die rote Leuchte aufleuchtet, drücke hier im Assistenten auf <key>[Programmieren]</key>"
+      },
+      "askLocoDone": "Der FRED sollte jetzt auf die gewählte Adresse programmiert sein.",
+      "askLocoUnplug": "Du kannst den Programmiermodus jetzt mit <key>[SHIFT]</key> + <key>[STOP]</key> verlassen und den FRED abstecken",
+      "askLocoTitle": "Möchtest du jetzt noch eine Lokomotive für diesen FRED programmieren?",
       "askLocoYes": "Ja",
-      "askLocoNo": "Nein, beenden"
+      "askLocoNo": "Nein, beenden",
+      "askLocoRetry": "Etwas ist schiefgelaufen — FRED erneut programmieren"
     },
     "phone": {
       "scanPlayTitle": "Code scannen und BigFred installieren",

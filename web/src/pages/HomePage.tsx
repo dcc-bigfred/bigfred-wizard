@@ -82,7 +82,7 @@ export default function HomePage() {
         ))}
         <Card sx={{ borderLeft: "10px solid #334155" }}>
           <CardActionArea
-            onClick={() => navigate("/flow/drive?device=fred&guest=1")}
+            onClick={() => navigate("/flow/drive?device=fred")}
             sx={{ p: 3, minHeight: 160 }}
           >
             <Box
