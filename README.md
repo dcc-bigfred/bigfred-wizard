@@ -70,6 +70,15 @@ restart. Overlays (init.d, microinit, microdns) live in
 }
 ```
 
+Digitrax FRED programming uses a physical Z21 LAN command station (LocoNet jack).
+Optional `fredProgramming.z21` skips the station picker when **both** `address`
+is non-empty **and** `port` is non-zero (do not rely on the protocol default
+21105 for skip):
+
+```json
+"fredProgramming": { "z21": { "address": "192.168.0.111", "port": 21105 } }
+```
+
 ## License
 
 MIT

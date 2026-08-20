@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::extract::{Path as AxumPath, State};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::Json;
 use futures::stream::Stream;
@@ -108,12 +108,19 @@ impl WirelessClient {
         }
     }
 
-    pub async fn scan(&self) -> ApiResult<Vec<wp_proto::CandidateWire>> {
+    pub async fn scan(
+        &self,
+        mode: Option<wp_proto::ReachMode>,
+    ) -> ApiResult<Vec<wp_proto::CandidateWire>> {
+        let params = match mode {
+            Some(wp_proto::ReachMode::Ap) | None => Some(Params::None),
+            Some(mode) => Some(Params::Scan(wp_proto::ScanParams { mode })),
+        };
         match self
             .expect_result(
                 Request {
                     kind: RequestKind::Scan,
-                    params: Some(Params::None),
+                    params,
                 },
                 RequestKind::Scan,
             )
@@ -238,8 +245,26 @@ pub async fn link_status(
     Ok(Json(state.wireless.link_status().await?))
 }
 
-pub async fn scan(State(state): State<AppState>) -> ApiResult<Json<Vec<wp_proto::CandidateWire>>> {
-    Ok(Json(state.wireless.scan().await?))
+#[derive(Debug, Deserialize)]
+pub struct ScanQuery {
+    mode: Option<String>,
+}
+
+pub async fn scan(
+    State(state): State<AppState>,
+    Query(q): Query<ScanQuery>,
+) -> ApiResult<Json<Vec<wp_proto::CandidateWire>>> {
+    let mode = match q.mode.as_deref() {
+        Some("z21") => Some(wp_proto::ReachMode::Z21),
+        Some("lan") => Some(wp_proto::ReachMode::Lan),
+        Some("usb") => Some(wp_proto::ReachMode::Usb),
+        Some("ap") | None => Some(wp_proto::ReachMode::Ap),
+        Some(other) => {
+            return Err(ApiError::bad_request("invalid_scan_mode")
+                .with_detail(format!("unknown mode {other}")));
+        }
+    };
+    Ok(Json(state.wireless.scan(mode).await?))
 }
 
 #[derive(Debug, Deserialize)]
@@ -273,7 +298,8 @@ pub async fn program(
     Json(body): Json<ProgramFromWizardBody>,
 ) -> ApiResult<Json<ProgramResult>> {
     let cfg = state.config().await;
-    if cfg.wifi_ssid.trim().is_empty() {
+    let is_fred = body.candidate.driver == "fred";
+    if !is_fred && cfg.wifi_ssid.trim().is_empty() {
         return Err(ApiError::bad_request("wifi_not_configured")
             .with_detail("wifiSsid is empty in bigfred-wizard.json"));
     }
@@ -285,24 +311,35 @@ pub async fn program(
             Some(p.to_string())
         }
     };
-    let request = ProgramRequestWire {
-        identity: body.identity,
-        wifi: wp_proto::WifiCredentialsWire {
-            ssid: cfg.wifi_ssid.trim().to_string(),
-            psk,
-        },
-        server: wp_proto::ThrottleServerWire {
-            host: cfg.throttle_server_host.trim().to_string(),
-            port: cfg.throttle_server_port,
-            automatic: if cfg.throttle_server_automatic {
-                Some(true)
-            } else {
-                None
+    let request = if is_fred {
+        ProgramRequestWire {
+            identity: body.identity,
+            wifi: wp_proto::WifiCredentialsWire::default(),
+            server: wp_proto::ThrottleServerWire::default(),
+            roster: body.roster,
+            bigfred: body.bigfred,
+            roster_mode: body.roster_mode,
+        }
+    } else {
+        ProgramRequestWire {
+            identity: body.identity,
+            wifi: wp_proto::WifiCredentialsWire {
+                ssid: cfg.wifi_ssid.trim().to_string(),
+                psk,
             },
-        },
-        roster: body.roster,
-        bigfred: body.bigfred,
-        roster_mode: body.roster_mode,
+            server: wp_proto::ThrottleServerWire {
+                host: cfg.throttle_server_host.trim().to_string(),
+                port: cfg.throttle_server_port,
+                automatic: if cfg.throttle_server_automatic {
+                    Some(true)
+                } else {
+                    None
+                },
+            },
+            roster: body.roster,
+            bigfred: body.bigfred,
+            roster_mode: body.roster_mode,
+        }
     };
     Ok(Json(state.wireless.program(body.candidate, request).await?))
 }

@@ -21,5 +21,8 @@
   "throttleServerHost": "bigfred.local",
   "throttleServerPort": 12090,
   "throttleServerAutomatic": true,
-  "wirelessProgrammerSocket": "/data/run/wireless-programmer/wireless-programmer.sock"
+  "wirelessProgrammerSocket": "/data/run/wireless-programmer/wireless-programmer.sock",
+  "fredProgramming": {
+    "z21": { "address": "", "port": 0 }
+  }
 }

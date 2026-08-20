@@ -45,7 +45,9 @@
       "drive": "Ich möchte fahren — hilf mir, Regler oder Telefon einzurichten",
       "driveHint": "Telefon, WlanMaus, LongFred, WiFred…",
       "loco": "Lokomotive einrichten",
-      "locoHint": "DCC-Adresse und Fahrzeugeintrag"
+      "locoHint": "DCC-Adresse und Fahrzeugeintrag",
+      "fredGuest": "Kabelgebundenen FRED programmieren",
+      "fredGuestHint": "Ich helfe dir auch, ältere kabelgebundene FREDs zu programmieren"
     }
   },
   "help": {
@@ -181,6 +183,10 @@
         "title": "WiFred (Heiko Rosemann)",
         "hint": "Physischer Handregler"
       },
+      "fred": {
+        "title": "Digitrax FRED",
+        "hint": "Kabelgebundener LocoNet-Regler — Programmierung über Z21"
+      },
       "withrottle-advanced": {
         "title": "Andere WiThrottle-App (erweitert)",
         "hint": "Kopplung über WiThrottle — für Fortgeschrittene"
@@ -194,7 +200,11 @@
         "scan": "Regler finden",
         "pickRoster": "Loks",
         "programming": "Programmieren",
-        "done": "Fertig"
+        "done": "Fertig",
+        "accountAsk": "Konto",
+        "address": "DCC-Adresse",
+        "z21": "Zentrale",
+        "askLoco": "Lok"
       },
       "whoDrives": "Wer soll mit diesem Regler fahren?",
       "pinWifredTitle": "Gib deinen BigFred-PIN ein",
@@ -248,11 +258,40 @@
       "errors": {
         "busy": "Der Regler ist beschäftigt — bitte gleich nochmal versuchen.",
         "noCandidates": "Kein Regler gefunden.",
+        "dispatchFailed": "Die Zentrale hat DISPATCH_PUT abgelehnt. Prüfe, ob der FRED in einer LocoNet-Buchse steckt und die gewählte Z21 LocoNet-Master ist.",
+        "z21NoLocoNet": "Diese Zentrale unterstützt keine LocoNet-Adressvergabe. Wähle eine physische Z21 mit L-NET- / LOCONET-Buchse.",
+        "invalid_address": "Die DCC-Adresse muss eine Zahl von 1 bis 10239 sein.",
+        "unreachable": "Die Z21-Zentrale konnte nicht erreicht werden. Stelle sicher, dass sie im selben Netz ist und die Adresse stimmt.",
         "radioBlocked": "Funk ist blockiert. Bitte den Operator um Hilfe bitten.",
         "wireless_unavailable": "Programmierung ist nicht verfügbar. Bitte den Operator um Hilfe bitten.",
         "forbidden": "Keine Berechtigung zum Programmieren.",
         "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
       }
+    },
+    "fred": {
+      "accountAskTitle": "Wie soll der FRED programmiert werden?",
+      "accountYes": "Ich habe ein BigFred-Konto und möchte meine Lokomotive programmieren",
+      "accountYesHint": "Teilnehmer und Lok aus der Liste wählen.",
+      "accountNo": "Ich habe kein Konto — ich möchte nur eine DCC-Adresse in den FRED eingeben",
+      "accountNoHint": "Ohne Anmeldung — nur die DCC-Nummer.",
+      "dccTitle": "DCC-Adresse",
+      "dccHint": "Adresse eingeben, die der FRED erhalten soll (1–10239).",
+      "dccLabel": "DCC-Adresse",
+      "rosterTitle": "Lokomotive für den FRED wählen",
+      "z21Title": "Adresse der Z21-Zentrale wählen, in die du den FRED steckst (LocoNet-Buchse L-NET, LOCONET-T oder LOCONET-B)",
+      "z21Empty": "Keine Z21-Zentrale gefunden. Prüfe, ob sie im selben Netz ist, und versuche es erneut.",
+      "z21Busy": "Suche Z21-Zentralen…",
+      "plugSteps": {
+        "1": "Stecke den FRED in eine LocoNet-Buchse — gekennzeichnet mit L-NET, LOCONET-T oder LOCONET-B",
+        "2": "Drücke <key>[SHIFT]</key> + <key>[STOP]</key>; die rote LED sollte aufleuchten",
+        "3": "Wenn die rote Leuchte aufleuchtet, drücke hier im Assistenten auf <key>[Programmieren]</key>"
+      },
+      "askLocoDone": "Der FRED sollte jetzt auf die gewählte Adresse programmiert sein.",
+      "askLocoUnplug": "Du kannst den Programmiermodus jetzt mit <key>[SHIFT]</key> + <key>[STOP]</key> verlassen und den FRED abstecken",
+      "askLocoTitle": "Möchtest du jetzt noch eine Lokomotive für diesen FRED programmieren?",
+      "askLocoYes": "Ja",
+      "askLocoNo": "Nein, beenden",
+      "askLocoRetry": "Etwas ist schiefgelaufen — FRED erneut programmieren"
     },
     "phone": {
       "scanPlayTitle": "Code scannen und BigFred installieren",

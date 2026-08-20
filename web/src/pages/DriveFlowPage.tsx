@@ -8,10 +8,11 @@ import CircularProgress from "@mui/material/CircularProgress";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import { Trans, useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import AppShell from "../components/AppShell";
 import { ChoiceList, ChoiceOption } from "../components/ChoiceList";
@@ -39,6 +40,7 @@ import {
   howToEnterKey,
   isPhoneDevice,
   isRailboxDevice,
+  isFredProgramDevice,
   isWirelessProgramDevice,
   isWlanmausDevice,
   LONGFRED_VARIANTS,
@@ -50,6 +52,7 @@ import {
   type DriveDevice,
   type LongFredVariantId,
 } from "../drive/devices";
+import fredLogo from "../logos/fred.png";
 
 type Phase =
   | "device"
@@ -76,7 +79,13 @@ type Phase =
   | "wpRoster"
   | "wpProgramming"
   | "wpDone"
-  | "wpFailed";
+  | "wpFailed"
+  | "fredAccountAsk"
+  | "fredGuestAddress"
+  | "fredRoster"
+  | "fredZ21"
+  | "fredPlug"
+  | "fredAskLoco";
 
 const POLL_MS = 3000;
 
@@ -95,13 +104,28 @@ function friendlyWirelessError(err: unknown, t: (k: string) => string): string {
   return t("drive.program.errors.generic");
 }
 
+function fixedZ21Candidate(config: WizardConfig | null | undefined): Candidate | null {
+  const z = config?.fredProgramming?.z21;
+  if (!z) return null;
+  const address = z.address.trim();
+  if (!address || z.port === 0) return null;
+  const key = `${address}:${z.port}`;
+  return { driver: "fred", key, label: key };
+}
+
+const FRED_KEY_COMPONENTS = {
+  key: <strong />,
+};
+
 export default function DriveFlowPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { me, config } = useAuth();
+  const fredSkipDevice = searchParams.get("device") === "fred";
 
-  const [phase, setPhase] = useState<Phase>("device");
-  const [device, setDevice] = useState<DriveDevice | null>(null);
+  const [phase, setPhase] = useState<Phase>(fredSkipDevice ? "fredAccountAsk" : "device");
+  const [device, setDevice] = useState<DriveDevice | null>(fredSkipDevice ? "fred" : null);
   const [user, setUser] = useState<User | null>(null);
   const [stations, setStations] = useState<CommandStation[] | null>(null);
   const [station, setStation] = useState<CommandStation | null>(null);
@@ -126,8 +150,11 @@ export default function DriveFlowPage() {
   const [wlanmausWifiNeedsSetup, setWlanmausWifiNeedsSetup] = useState<boolean | null>(null);
   const [handsetSetup, setHandsetSetup] = useState<HandsetSetup | null>(null);
   const [handsetSetupLoading, setHandsetSetupLoading] = useState(false);
+  const [fredGuest, setFredGuest] = useState(false);
+  const [fredAddressText, setFredAddressText] = useState("");
 
   const wireless = device != null && isWirelessProgramDevice(device);
+  const skipZ21 = fixedZ21Candidate(config) != null;
 
   const stepperLabels = useMemo(() => {
     if (!device) {
@@ -135,6 +162,13 @@ export default function DriveFlowPage() {
     }
     if (isPhoneDevice(device)) {
       return ["device", "qr", "drive"];
+    }
+    if (isFredProgramDevice(device)) {
+      const z21 = skipZ21 ? [] : ["z21"];
+      if (fredGuest) {
+        return ["accountAsk", "address", ...z21, "programming", "askLoco"];
+      }
+      return ["accountAsk", "user", "pickRoster", ...z21, "programming", "askLoco"];
     }
     if (isWirelessProgramDevice(device)) {
       return [
@@ -155,7 +189,7 @@ export default function DriveFlowPage() {
       return ["device", "user", "app", "connect", "pairSetup", "pairing", "loco"];
     }
     return ["device", "user", "pairing", "loco", "howto"];
-  }, [device]);
+  }, [device, fredGuest, skipZ21]);
 
   const activeStepIndex = useMemo(() => {
     const map: Record<Phase, string> = {
@@ -183,6 +217,12 @@ export default function DriveFlowPage() {
       wpProgramming: "programming",
       wpDone: "done",
       wpFailed: "programming",
+      fredAccountAsk: "accountAsk",
+      fredGuestAddress: "address",
+      fredRoster: "pickRoster",
+      fredZ21: "z21",
+      fredPlug: "programming",
+      fredAskLoco: "askLoco",
     };
     const key = map[phase];
     const resolved =
@@ -210,6 +250,9 @@ export default function DriveFlowPage() {
     setDevice(id);
     if (isPhoneDevice(id)) {
       setPhase("phoneQr");
+    } else if (isFredProgramDevice(id)) {
+      setFredGuest(false);
+      setPhase("fredAccountAsk");
     } else {
       setPhase("user");
     }
@@ -217,7 +260,7 @@ export default function DriveFlowPage() {
 
   useEffect(() => {
     // LongFred Soft-AP does not need a command station; WiFred needs WiThrottle for pairing.
-    if (!me || !device || isPhoneDevice(device) || device === "longfred") {
+    if (!me || !device || isPhoneDevice(device) || device === "longfred" || isFredProgramDevice(device)) {
       return;
     }
     let cancelled = false;
@@ -477,12 +520,50 @@ export default function DriveFlowPage() {
     }
   };
 
+  const goAfterFredAddress = useCallback(
+    (nextCandidate?: Candidate | null) => {
+      const fixed = nextCandidate ?? fixedZ21Candidate(config);
+      if (fixed) {
+        setCandidate(fixed);
+        setPhase("fredPlug");
+        return;
+      }
+      setPhase("fredZ21");
+    },
+    [config],
+  );
+
+  const loadFredRoster = async (picked: User) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const list = await api.vehicles(picked.login);
+      setVehicles(
+        list.filter(
+          (v) =>
+            (v.ownerLogin != null && v.ownerLogin === picked.login) ||
+            (v.ownerId != null && v.ownerId === picked.id),
+        ),
+      );
+      setRosterIds([]);
+      setPhase("fredRoster");
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const onUserPicked = (picked: User) => {
     setUser(picked);
     setBusy(true);
     setError(null);
     setWlanmausWifiNeedsSetup(null);
     setHandsetSetup(null);
+    if (device && isFredProgramDevice(device)) {
+      void loadFredRoster(picked);
+      return;
+    }
     void api.connectDrive(picked.login).catch(() => {
       /* pairing / F2 will surface failures */
     });
@@ -517,6 +598,7 @@ export default function DriveFlowPage() {
       !device ||
       isPhoneDevice(device) ||
       isWirelessProgramDevice(device) ||
+      isFredProgramDevice(device) ||
       isWlanmausDevice(device) ||
       isRailboxDevice(device) ||
       pairing
@@ -623,6 +705,28 @@ export default function DriveFlowPage() {
     }
   }, [phase, runScan]);
 
+  const runZ21Scan = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    setCandidates(null);
+    setCandidate(null);
+    try {
+      const all = await wirelessApi.scan("z21");
+      setCandidates(all.filter((c) => c.driver === "fred"));
+    } catch (err) {
+      setError(err);
+      setCandidates([]);
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (phase === "fredZ21") {
+      void runZ21Scan();
+    }
+  }, [phase, runZ21Scan]);
+
   const loadRosterAndContinue = async (picked: Candidate) => {
     if (!user) return;
     setCandidate(picked);
@@ -722,14 +826,57 @@ export default function DriveFlowPage() {
     }
   };
 
+  const startFredProgramming = async () => {
+    const addr = fredGuest
+      ? Number(fredAddressText)
+      : (vehicles?.find((v) => v.id === rosterIds[0])?.dccAddress ?? NaN);
+    if (!Number.isInteger(addr) || addr < 1 || addr > 10239) {
+      setError(new ApiError(400, "invalid_address", t("drive.program.errors.invalid_address")));
+      return;
+    }
+    const target = candidate ?? fixedZ21Candidate(config);
+    if (!target) {
+      setError(new ApiError(400, "noCandidates", t("drive.program.errors.noCandidates")));
+      return;
+    }
+    setCandidate(target);
+    setBusy(true);
+    setError(null);
+    setJobFrame(null);
+    setPhase("wpProgramming");
+    try {
+      const result = await wirelessApi.program({
+        candidate: { driver: "fred", key: target.key },
+        identity: "",
+        roster: [{ address: addr }],
+      });
+      const terminal = await wirelessApi.watchJob(result.jobId, (frame) => {
+        setJobFrame(frame);
+      });
+      if (terminal.state === "done") {
+        setPhase("fredAskLoco");
+      } else {
+        const detail = terminal.detail ?? "";
+        const mapped = t(`drive.program.errors.${detail}`);
+        setFailDetail(mapped !== `drive.program.errors.${detail}` ? mapped : detail || friendlyWirelessError(null, t));
+        setPhase("wpFailed");
+      }
+    } catch (err) {
+      setFailDetail(friendlyWirelessError(err, t));
+      setPhase("wpFailed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const expired = pairing !== null && !paired && pairing.expiresAt < Date.now();
 
   const maxRosterSlots = useMemo(() => {
     const driver = device ? wirelessDriverId(device) : null;
     if (!driver || !wpHello) {
-      return device === "longfred" ? 12 : 4;
+      return device === "longfred" ? 12 : device === "fred" ? 1 : 4;
     }
-    return driverCapabilities(wpHello, driver)?.maxRosterSlots ?? (device === "longfred" ? 12 : 4);
+    return driverCapabilities(wpHello, driver)?.maxRosterSlots ?? (device === "longfred" ? 12 : device === "fred" ? 1 : 4);
   }, [device, wpHello]);
 
   return (
@@ -743,6 +890,113 @@ export default function DriveFlowPage() {
         <ErrorAlert error={error} />
 
         {phase === "device" && <DevicePicker onPick={pickDevice} />}
+
+        {phase === "fredAccountAsk" && (
+          <Box>
+            <Typography variant="h5" sx={{ mb: 3 }}>
+              {t("drive.fred.accountAskTitle")}
+            </Typography>
+            <Box
+              sx={{
+                display: "grid",
+                gap: 2,
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              }}
+            >
+              <Card variant="outlined">
+                <CardActionArea
+                  onClick={() => {
+                    setFredGuest(false);
+                    setPhase("user");
+                  }}
+                  sx={{ p: 2.5, minHeight: 140 }}
+                >
+                  <Typography variant="h6">{t("drive.fred.accountYes")}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {t("drive.fred.accountYesHint")}
+                  </Typography>
+                </CardActionArea>
+              </Card>
+              <Card variant="outlined">
+                <CardActionArea
+                  onClick={() => {
+                    setFredGuest(true);
+                    setUser(null);
+                    setVehicles(null);
+                    setRosterIds([]);
+                    setPhase("fredGuestAddress");
+                  }}
+                  sx={{ p: 2.5, minHeight: 140 }}
+                >
+                  <Typography variant="h6">{t("drive.fred.accountNo")}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {t("drive.fred.accountNoHint")}
+                  </Typography>
+                </CardActionArea>
+              </Card>
+            </Box>
+            <Stack direction="row" sx={{ mt: 4 }}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (fredSkipDevice) {
+                    navigate("/");
+                    return;
+                  }
+                  setDevice(null);
+                  setPhase("device");
+                }}
+              >
+                {t("app.back")}
+              </Button>
+            </Stack>
+          </Box>
+        )}
+
+        {phase === "fredGuestAddress" && (
+          <Box>
+            <Typography variant="h5" sx={{ mb: 2 }}>
+              {t("drive.fred.dccTitle")}
+            </Typography>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              {t("drive.fred.dccHint")}
+            </Typography>
+            <TextField
+              label={t("drive.fred.dccLabel")}
+              value={fredAddressText}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/\D/g, "").slice(0, 5);
+                const n = Number(raw);
+                setFredAddressText(n > 10239 ? "10239" : raw);
+              }}
+              inputMode="numeric"
+              fullWidth
+              autoFocus
+              sx={{ maxWidth: 280, mb: 3 }}
+            />
+            <Stack direction="row" justifyContent="space-between">
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setFredGuest(false);
+                  setPhase("fredAccountAsk");
+                }}
+              >
+                {t("app.back")}
+              </Button>
+              <Button
+                variant="contained"
+                disabled={(() => {
+                  const n = Number(fredAddressText);
+                  return !Number.isInteger(n) || n < 1 || n > 10239;
+                })()}
+                onClick={() => goAfterFredAddress()}
+              >
+                {t("app.next")}
+              </Button>
+            </Stack>
+          </Box>
+        )}
 
         {phase === "advancedDevice" && (
           <AdvancedDevicePicker
@@ -769,7 +1023,7 @@ export default function DriveFlowPage() {
 
         {phase === "user" && (
           <Box>
-            {wireless ? (
+            {wireless || (device && isFredProgramDevice(device)) ? (
               <Typography variant="h6" sx={{ mb: 2 }}>
                 {t("drive.program.whoDrives")}
               </Typography>
@@ -786,8 +1040,18 @@ export default function DriveFlowPage() {
               </Box>
             )}
             <Stack direction="row" sx={{ mt: 3 }}>
-              <Button variant="outlined" onClick={() => navigate("/")}>
-                {t("app.cancel")}
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (device && isFredProgramDevice(device)) {
+                    setUser(null);
+                    setPhase("fredAccountAsk");
+                    return;
+                  }
+                  navigate("/");
+                }}
+              >
+                {device && isFredProgramDevice(device) ? t("app.back") : t("app.cancel")}
               </Button>
             </Stack>
           </Box>
@@ -968,10 +1232,181 @@ export default function DriveFlowPage() {
                 variant="contained"
                 onClick={() => {
                   setFailDetail("");
-                  setPhase("wpScan");
+                  if (device && isFredProgramDevice(device)) {
+                    setPhase(skipZ21 ? "fredPlug" : "fredZ21");
+                  } else {
+                    setPhase("wpScan");
+                  }
                 }}
               >
                 {t("drive.program.failedRetry")}
+              </Button>
+            </Stack>
+          </Box>
+        )}
+
+        {phase === "fredRoster" && (
+          <Box>
+            <Typography variant="h5" sx={{ mb: 1 }}>
+              {t("drive.fred.rosterTitle")}
+            </Typography>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              {t("drive.program.rosterHint", { max: 1 })}
+            </Typography>
+            {vehicles === null ? (
+              <CircularProgress />
+            ) : (
+              <RosterPicker
+                vehicles={vehicles}
+                selectedIds={rosterIds}
+                maxSlots={1}
+                onChange={setRosterIds}
+              />
+            )}
+            <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setUser(null);
+                  setPhase("user");
+                }}
+              >
+                {t("app.back")}
+              </Button>
+              <Button
+                variant="contained"
+                disabled={
+                  rosterIds.length !== 1 ||
+                  vehicles?.find((v) => v.id === rosterIds[0])?.dccAddress == null
+                }
+                onClick={() => goAfterFredAddress()}
+              >
+                {t("app.next")}
+              </Button>
+            </Stack>
+          </Box>
+        )}
+
+        {phase === "fredZ21" && (
+          <ScanStep
+            candidates={candidates}
+            busy={busy}
+            selected={candidate}
+            title={t("drive.fred.z21Title")}
+            empty={t("drive.fred.z21Empty")}
+            busyText={t("drive.fred.z21Busy")}
+            onSelect={(c) => {
+              setCandidate(c);
+              setPhase("fredPlug");
+            }}
+            onRetry={() => void runZ21Scan()}
+            onBack={() => {
+              if (fredGuest) setPhase("fredGuestAddress");
+              else setPhase("fredRoster");
+            }}
+          />
+        )}
+
+        {phase === "fredPlug" && (
+          <Box>
+            <NumberedSteps
+              steps={[1, 2, 3].map((n) => ({
+                body: (
+                  <Trans
+                    i18nKey={`drive.fred.plugSteps.${n}`}
+                    components={FRED_KEY_COMPONENTS}
+                  />
+                ),
+              }))}
+            />
+            <Box
+              component="img"
+              src={fredLogo}
+              alt=""
+              sx={{
+                display: "block",
+                width: "100%",
+                maxWidth: 520,
+                height: "auto",
+                borderRadius: 2,
+                mx: "auto",
+                my: 3,
+              }}
+            />
+            <Stack direction="row" justifyContent="space-between">
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  if (skipZ21) {
+                    setPhase(fredGuest ? "fredGuestAddress" : "fredRoster");
+                  } else {
+                    setPhase("fredZ21");
+                  }
+                }}
+              >
+                {t("app.back")}
+              </Button>
+              <Button
+                variant="contained"
+                disabled={busy}
+                onClick={() => void startFredProgramming()}
+              >
+                {busy ? <CircularProgress size={22} color="inherit" /> : t("loco.program")}
+              </Button>
+            </Stack>
+          </Box>
+        )}
+
+        {phase === "fredAskLoco" && (
+          <Box>
+            <Alert severity="success" sx={{ mb: 2, textAlign: "left" }}>
+              <Typography sx={{ fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.45 }}>
+                {t("drive.fred.askLocoDone")}
+              </Typography>
+            </Alert>
+            <Alert severity="warning" sx={{ mb: 2, textAlign: "left" }}>
+              <Typography sx={{ fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.45 }}>
+                <Trans i18nKey="drive.fred.askLocoUnplug" components={FRED_KEY_COMPONENTS} />
+              </Typography>
+            </Alert>
+            <Alert severity="info" sx={{ mb: 3, textAlign: "left" }}>
+              <Typography sx={{ fontSize: "1.1rem", fontWeight: 600, lineHeight: 1.45 }}>
+                {t("drive.fred.askLocoTitle")}
+              </Typography>
+            </Alert>
+            <Stack spacing={2} alignItems="center">
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="center">
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    const addr = fredGuest
+                      ? Number(fredAddressText)
+                      : (vehicles?.find((v) => v.id === rosterIds[0])?.dccAddress ?? NaN);
+                    navigate("/flow/loco", {
+                      state: {
+                        fromFred: true,
+                        address: addr,
+                        userLogin: user?.login,
+                        vehicleId: fredGuest ? undefined : rosterIds[0],
+                      },
+                    });
+                  }}
+                >
+                  {t("drive.fred.askLocoYes")}
+                </Button>
+                <Button variant="outlined" onClick={() => navigate("/")}>
+                  {t("drive.fred.askLocoNo")}
+                </Button>
+              </Stack>
+              <Button
+                variant="text"
+                onClick={() => {
+                  setFailDetail("");
+                  setJobFrame(null);
+                  setPhase("fredPlug");
+                }}
+              >
+                {t("drive.fred.askLocoRetry")}
               </Button>
             </Stack>
           </Box>
@@ -1737,6 +2172,9 @@ function ScanStep({
   onSelect,
   onRetry,
   onBack,
+  title,
+  empty,
+  busyText,
 }: {
   candidates: Candidate[] | null;
   busy: boolean;
@@ -1744,21 +2182,24 @@ function ScanStep({
   onSelect: (c: Candidate) => void;
   onRetry: () => void;
   onBack: () => void;
+  title?: string;
+  empty?: string;
+  busyText?: string;
 }) {
   const { t } = useTranslation();
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 2 }}>
-        {t("drive.program.scanTitle")}
+        {title ?? t("drive.program.scanTitle")}
       </Typography>
       {busy || candidates === null ? (
         <Stack alignItems="center" spacing={2} sx={{ py: 4 }}>
           <CircularProgress />
-          <Typography color="text.secondary">{t("drive.program.scanBusy")}</Typography>
+          <Typography color="text.secondary">{busyText ?? t("drive.program.scanBusy")}</Typography>
         </Stack>
       ) : candidates.length === 0 ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          {t("drive.program.scanEmpty")}
+          {empty ?? t("drive.program.scanEmpty")}
         </Alert>
       ) : (
         <ChoiceList>

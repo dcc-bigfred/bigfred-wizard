@@ -18,6 +18,9 @@ export interface WizardConfig {
   throttleServerHost: string;
   throttleServerPort: number;
   throttleServerAutomatic: boolean;
+  fredProgramming: {
+    z21: { address: string; port: number };
+  };
 }
 
 export interface HandsetSetup {
