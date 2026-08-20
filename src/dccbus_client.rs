@@ -1,11 +1,16 @@
 //! Resilient dcc-bus WebSocket client.
 //!
-//! Programming frames (`loco.cvRead`, `loco.cvWrite`, `loco.addrGet`,
-//! `loco.addrSet`) travel over BigFred's dcc-bus proxy
-//! (`/api/v1/dcc-bus/{commandStationId}/ws?token=…`) using the organizer's
-//! JWT. The socket is opened lazily on the first programming request and
-//! then kept alive with pings; a dropped socket is re-dialled with
-//! exponential backoff and jitter on the next request.
+//! Two long-lived sockets are kept (each with its own keep-alive pings):
+//!
+//! * **programming** — organizer JWT, used for CV / address frames
+//!   (`loco.cvRead`, `loco.cvWrite`, `loco.addrGet`, `loco.addrSet`).
+//! * **drive** — organizer JWT + `X-BigFred-Impersonate-As` for the
+//!   currently selected participant; used for ops-track pulses (F2).
+//!   Replaced when the wizard picks a different user.
+//!
+//! Both are warmed eagerly (`ensure_connected` after login,
+//! `ensure_drive` when a participant is selected) and re-dialled with
+//! exponential backoff if they die.
 //!
 //! The daemon that actually drives the command station is spawned by
 //! BigFred when a layout session selects the station. If no daemon is
@@ -29,6 +34,7 @@ use tokio_tungstenite::tungstenite::http::header::HeaderName;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::config::Config;
+use tokio::sync::RwLock;
 use crate::error::ApiError;
 
 /// dcc-bus frame types used by the wizard.
@@ -39,7 +45,9 @@ pub const FRAME_ADDR_SET: &str = "loco.addrSet";
 pub const FRAME_SET_FUNCTION: &str = "loco.setFunction";
 
 const ACK_TIMEOUT: Duration = Duration::from_secs(30);
-const PING_INTERVAL: Duration = Duration::from_secs(10);
+/// Keep-alive for both permanent sockets. Must stay below dcc-bus deadman
+/// (default 6s; BigFred heartbeat is 2s).
+const PING_INTERVAL: Duration = Duration::from_secs(2);
 const CONNECT_ATTEMPTS: u32 = 3;
 const BACKOFF_BASE_MS: u64 = 250;
 const BACKOFF_MAX_MS: u64 = 4_000;
@@ -114,6 +122,11 @@ pub struct Status {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_error: Option<String>,
     pub reconnects: u64,
+    /// Impersonated drive socket is up (F2 / ops track).
+    pub drive_connected: bool,
+    /// Participant the drive socket is impersonating, when connected.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub drive_as: Option<String>,
 }
 
 type Pending = Arc<StdMutex<HashMap<String, oneshot::Sender<Ack>>>>;
@@ -142,22 +155,28 @@ impl Drop for Session {
     }
 }
 
-/// Owns (at most) one dcc-bus socket for the whole daemon. The mutex on
-/// the session doubles as the serialization point for CV operations: the
-/// programming track handles exactly one request at a time.
+/// Impersonated drive socket keyed by participant login.
+struct DriveSession {
+    login: String,
+    session: Session,
+}
+
+/// Owns two dcc-bus sockets: organizer programming + participant drive.
 pub struct DccBusClient {
-    cfg: Arc<Config>,
+    cfg: Arc<RwLock<Config>>,
     http: reqwest::Client,
-    session: Mutex<Option<Session>>,
+    programming: Mutex<Option<Session>>,
+    drive: Mutex<Option<DriveSession>>,
     status: StdMutex<Status>,
 }
 
 impl DccBusClient {
-    pub fn new(cfg: Arc<Config>, http: reqwest::Client) -> Self {
+    pub fn new(cfg: Arc<RwLock<Config>>, http: reqwest::Client) -> Self {
         Self {
             cfg,
             http,
-            session: Mutex::new(None),
+            programming: Mutex::new(None),
+            drive: Mutex::new(None),
             status: StdMutex::new(Status::default()),
         }
     }
@@ -177,15 +196,73 @@ impl DccBusClient {
         self.lock_status().clone()
     }
 
+    fn refresh_drive_status(&self, drive: &Option<DriveSession>) {
+        let mut status = self.lock_status();
+        match drive {
+            Some(d) if d.session.is_alive() => {
+                status.drive_connected = true;
+                status.drive_as = Some(d.login.clone());
+            }
+            _ => {
+                status.drive_connected = false;
+                status.drive_as = None;
+            }
+        }
+    }
+
+    /// Opens (or reuses) the organizer programming WebSocket. No-op when a
+    /// live session already exists — used to warm the link right after login.
+    pub async fn ensure_connected(&self, token: &str) -> Result<Status, ApiError> {
+        let mut guard = self.programming.lock().await;
+        if guard.as_ref().is_some_and(|s| !s.is_alive()) {
+            *guard = None;
+        }
+        if guard.is_none() {
+            *guard = Some(self.connect_with_backoff_as(token, None).await?);
+        }
+        drop(guard);
+        Ok(self.status())
+    }
+
+    /// Opens (or switches) the impersonated drive WebSocket for `as_login`.
+    /// Reuses the existing socket when it is alive and already that user.
+    pub async fn ensure_drive(&self, token: &str, as_login: &str) -> Result<Status, ApiError> {
+        let login = as_login.trim();
+        if login.is_empty() {
+            return Err(ApiError::bad_request("impersonate_required"));
+        }
+        let mut guard = self.drive.lock().await;
+        let reuse = guard
+            .as_ref()
+            .is_some_and(|d| d.login == login && d.session.is_alive());
+        if !reuse {
+            if let Some(prev) = guard.take() {
+                tracing::info!(
+                    previous = %prev.login,
+                    next = %login,
+                    "dcc-bus drive session switching user"
+                );
+            }
+            let session = self.connect_with_backoff_as(token, Some(login)).await?;
+            *guard = Some(DriveSession {
+                login: login.to_string(),
+                session,
+            });
+        }
+        self.refresh_drive_status(&guard);
+        drop(guard);
+        Ok(self.status())
+    }
+
     /// Sends one programming frame and waits for the matching `ack`.
-    /// Reconnects once if the cached socket turned out to be dead.
+    /// Reconnects once if the cached programming socket turned out to be dead.
     pub async fn request(
         &self,
         token: &str,
         frame: &str,
         payload: serde_json::Value,
     ) -> Result<Ack, ApiError> {
-        let mut guard = self.session.lock().await;
+        let mut guard = self.programming.lock().await;
         if guard.as_ref().is_some_and(|s| !s.is_alive()) {
             *guard = None;
         }
@@ -204,7 +281,6 @@ impl DccBusClient {
         {
             Ok(ack) => Ok(ack),
             Err(err) if err.status == StatusCode::SERVICE_UNAVAILABLE => {
-                // The socket died between requests — one clean retry.
                 *guard = None;
                 *guard = Some(self.connect_with_backoff_as(token, None).await?);
                 send_and_wait(
@@ -220,27 +296,7 @@ impl DccBusClient {
         }
     }
 
-    /// Like [`request`], but opens a one-shot dcc-bus socket with
-    /// `X-BigFred-Impersonate-As` so drive commands run as the participant.
-    /// Does not replace the cached programming session.
-    pub async fn request_as(
-        &self,
-        token: &str,
-        as_login: &str,
-        frame: &str,
-        payload: serde_json::Value,
-    ) -> Result<Ack, ApiError> {
-        let login = as_login.trim();
-        if login.is_empty() {
-            return Err(ApiError::bad_request("impersonate_required"));
-        }
-        let session = self.connect_with_backoff_as(token, Some(login)).await?;
-        let result = send_and_wait(&session, frame, payload).await;
-        drop(session);
-        result
-    }
-
-    /// Impersonated on→wait→off for one function (single WS session).
+    /// Impersonated on→wait→off for one function on the cached drive socket.
     ///
     /// # Errors
     ///
@@ -265,9 +321,28 @@ impl DccBusClient {
         if login.is_empty() {
             return Err(ApiError::bad_request("impersonate_required"));
         }
-        let session = self.connect_with_backoff_as(token, Some(login)).await?;
+
+        let mut guard = self.drive.lock().await;
+        let reuse = guard
+            .as_ref()
+            .is_some_and(|d| d.login == login && d.session.is_alive());
+        if !reuse {
+            let _ = guard.take();
+            let session = self.connect_with_backoff_as(token, Some(login)).await?;
+            *guard = Some(DriveSession {
+                login: login.to_string(),
+                session,
+            });
+            self.refresh_drive_status(&guard);
+        }
+
+        let session = &guard
+            .as_ref()
+            .ok_or_else(|| ApiError::internal("dcc_bus_drive_session_lost"))?
+            .session;
+
         let on_result = send_and_wait(
-            &session,
+            session,
             FRAME_SET_FUNCTION,
             serde_json::json!({
                 "address": address,
@@ -277,14 +352,10 @@ impl DccBusClient {
         )
         .await;
         if let Err(err) = on_result {
-            // ON never confirmed — nothing to roll back.
-            drop(session);
             return Err(err);
         }
 
-        // Guard emits a best-effort OFF if this future is dropped before
-        // `disarm_and_send_off` runs (caller cancellation / panic).
-        let guard = PulseOffGuard {
+        let pulse_guard = PulseOffGuard {
             tx: session.tx.clone(),
             address,
             function,
@@ -293,17 +364,15 @@ impl DccBusClient {
 
         tokio::time::sleep(Duration::from_millis(duration_ms)).await;
 
-        let off_ack = guard.disarm_and_send_off(&session).await;
-        drop(session);
+        let off_ack = pulse_guard.disarm_and_send_off(session).await;
+        // Keep the drive socket open for the next F2 on the same user.
         off_ack
     }
 
     /// Picks the programming-capable command station with the lowest id.
     pub async fn pick_station(&self, token: &str) -> Result<CommandStation, ApiError> {
-        let url = format!(
-            "{}/api/v1/command-stations/catalogue",
-            self.cfg.bigfred_api_base()
-        );
+        let api_base = self.cfg.read().await.bigfred_api_base();
+        let url = format!("{api_base}/api/v1/command-stations/catalogue");
         let res = self
             .http
             .get(&url)
@@ -385,7 +454,7 @@ impl DccBusClient {
 
         let url = format!(
             "{}/api/v1/dcc-bus/{}/ws?token={}",
-            self.cfg.bigfred_ws_base(),
+            self.cfg.read().await.bigfred_ws_base(),
             station.id,
             urlencode(token)
         );
@@ -461,6 +530,7 @@ impl DccBusClient {
         let ping_tx = tx.clone();
         let pinger = tokio::spawn(async move {
             let mut ticker = tokio::time::interval(PING_INTERVAL);
+            ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 ticker.tick().await;
                 let Ok(frame) = serde_json::to_string(&Envelope {
@@ -479,6 +549,12 @@ impl DccBusClient {
         tracing::info!(
             command_station = station.id,
             name = %station.name,
+            as_login = as_login.unwrap_or(""),
+            role = if as_login.is_some() {
+                "drive"
+            } else {
+                "programming"
+            },
             "dcc-bus connected"
         );
         Ok(Session {

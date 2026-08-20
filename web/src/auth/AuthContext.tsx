@@ -55,25 +55,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .wizardConfig()
-      .then((cfg) => {
-        if (!cancelled) {
-          setConfig(cfg);
-        }
-      })
-      .catch((err: Error) => {
-        if (!cancelled) {
-          setConfigError(err.message);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setReady(true);
-        }
-      });
+
+    const loadConfig = () => {
+      api
+        .wizardConfig()
+        .then((cfg) => {
+          if (!cancelled) {
+            setConfig(cfg);
+            setConfigError(null);
+          }
+        })
+        .catch((err: Error) => {
+          if (!cancelled) {
+            setConfigError(err.message);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setReady(true);
+          }
+        });
+    };
+
+    loadConfig();
+    const interval = window.setInterval(loadConfig, 15_000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        loadConfig();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 
@@ -96,9 +112,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     api
       .me()
-      .then((value) => {
-        if (!cancelled) {
-          setMe(value);
+      .then(async (value) => {
+        if (cancelled) {
+          return;
+        }
+        setMe(value);
+        // Warm dcc-bus as soon as the organizer is authenticated so loco
+        // programming does not pay the connect latency on first use.
+        try {
+          await api.connectProgramming();
+        } catch {
+          // Surface later via status / programming flows.
         }
       })
       .catch(() => {

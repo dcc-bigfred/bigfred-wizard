@@ -12,8 +12,10 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FullscreenIcon from "@mui/icons-material/Fullscreen";
 import FullscreenExitIcon from "@mui/icons-material/FullscreenExit";
 import LogoutIcon from "@mui/icons-material/Logout";
+import SettingsIcon from "@mui/icons-material/Settings";
+import Fab from "@mui/material/Fab";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   LANGUAGE_FLAG_ICONS,
@@ -41,8 +43,10 @@ function activeLanguage(resolved: string | undefined): Language {
 export default function AppShell({ title, showBack = false, children }: Props) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { token, logout } = useAuth();
   const current = activeLanguage(i18n.resolvedLanguage ?? i18n.language);
+  const onAbout = location.pathname === "/about";
   const [fullscreen, setFullscreen] = useState(
     () => typeof document !== "undefined" && Boolean(document.fullscreenElement),
   );
@@ -69,21 +73,31 @@ export default function AppShell({ title, showBack = false, children }: Props) {
     <Box
       sx={{
         position: "relative",
-        minHeight: "100vh",
+        minHeight: "100dvh",
+        width: "100%",
+        maxWidth: "100%",
+        overflowX: "hidden",
         bgcolor: "background.default",
       }}
     >
       <AssistantBackdrop />
       <AppBar position="static" color="primary" enableColorOnDark sx={{ position: "relative", zIndex: 1 }}>
-        <Toolbar sx={{ gap: 2, minHeight: 80 }}>
+        <Toolbar sx={{ gap: { xs: 0.5, sm: 1.5 }, minHeight: 64, px: { xs: 1, sm: 2 } }}>
           {showBack && (
-            <Button color="inherit" startIcon={<ArrowBackIcon />} onClick={() => navigate("/")}>
-              {t("app.home")}
+            <Button
+              color="inherit"
+              aria-label={t("app.home")}
+              title={t("app.home")}
+              onClick={() => navigate("/")}
+              sx={{ minWidth: 40, px: { xs: 1, sm: 1.5 } }}
+            >
+              <ArrowBackIcon sx={{ mr: { xs: 0, sm: 1 } }} />
+              <Box component="span" sx={{ display: { xs: "none", sm: "inline" } }}>
+                {t("app.home")}
+              </Box>
             </Button>
           )}
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {title ?? t("app.title")}
-          </Typography>
+          <Box sx={{ flexGrow: 1 }} />
           <ToggleButtonGroup
             size="small"
             exclusive
@@ -100,11 +114,11 @@ export default function AppShell({ title, showBack = false, children }: Props) {
                   value={lang}
                   aria-label={LANGUAGE_LABELS[lang]}
                   title={LANGUAGE_LABELS[lang]}
-                  sx={{ color: "white", px: 1.25, minWidth: 48, lineHeight: 0 }}
+                  sx={{ color: "white", px: { xs: 0.75, sm: 1.25 }, minWidth: { xs: 40, sm: 48 }, lineHeight: 0 }}
                 >
                   <Flag
                     aria-hidden
-                    sx={{ fontSize: 28, borderRadius: 0.5, overflow: "hidden" }}
+                    sx={{ fontSize: { xs: 22, sm: 28 }, borderRadius: 0.5, overflow: "hidden" }}
                   />
                 </ToggleButton>
               );
@@ -112,27 +126,85 @@ export default function AppShell({ title, showBack = false, children }: Props) {
           </ToggleButtonGroup>
           <Button
             color="inherit"
-            startIcon={fullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
+            aria-label={fullscreen ? t("app.exitFullscreen") : t("app.fullscreen")}
+            title={fullscreen ? t("app.exitFullscreen") : t("app.fullscreen")}
             onClick={() => void toggleFullscreen()}
+            sx={{ minWidth: 40, px: 1 }}
           >
-            {fullscreen ? t("app.exitFullscreen") : t("app.fullscreen")}
+            {fullscreen ? <FullscreenExitIcon /> : <FullscreenIcon />}
           </Button>
-          {token && (
-            <Button
-              color="inherit"
-              aria-label={t("app.logout")}
-              title={t("app.logout")}
-              onClick={() => logout()}
-              sx={{ minWidth: 64, px: 1.5 }}
-            >
-              <LogoutIcon />
-            </Button>
-          )}
         </Toolbar>
       </AppBar>
-      <Container maxWidth="md" sx={{ position: "relative", zIndex: 1, py: 4 }}>
+      <Container
+        maxWidth="md"
+        sx={{
+          position: "relative",
+          zIndex: 1,
+          py: 4,
+          width: "100%",
+          overflowX: "hidden",
+          boxSizing: "border-box",
+        }}
+      >
+        {title && (
+          <Typography
+            component="h1"
+            variant="h5"
+            align="center"
+            sx={{ mb: 3, fontWeight: 600 }}
+          >
+            {title}
+          </Typography>
+        )}
         {children}
       </Container>
+      <Box
+        sx={{
+          position: "fixed",
+          left: { xs: 12, sm: 20 },
+          bottom: { xs: 12, sm: 20 },
+          zIndex: 20,
+          display: "flex",
+          gap: 1,
+        }}
+      >
+        {!onAbout && (
+          <Fab
+            color="primary"
+            size="small"
+            aria-label={t("about.open")}
+            title={t("about.open")}
+            onClick={() => navigate("/about")}
+            sx={{
+              width: 28,
+              height: 28,
+              minHeight: 28,
+              opacity: 0.5,
+              "& .MuiSvgIcon-root": { fontSize: 16 },
+            }}
+          >
+            <SettingsIcon />
+          </Fab>
+        )}
+        {token && (
+          <Fab
+            color="primary"
+            size="small"
+            aria-label={t("app.logout")}
+            title={t("app.logout")}
+            onClick={() => logout()}
+            sx={{
+              width: 28,
+              height: 28,
+              minHeight: 28,
+              opacity: 0.5,
+              "& .MuiSvgIcon-root": { fontSize: 16 },
+            }}
+          >
+            <LogoutIcon />
+          </Fab>
+        )}
+      </Box>
     </Box>
   );
 }

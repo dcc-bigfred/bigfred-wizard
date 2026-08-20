@@ -3,7 +3,9 @@ import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import { api } from "../api/client";
 import type { User } from "../api/types";
@@ -24,6 +26,7 @@ function formatPool(user: User): string {
 
 export default function UserPicker({ selected, onSelect }: Props) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[] | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [query, setQuery] = useState("");
@@ -71,11 +74,25 @@ export default function UserPicker({ selected, onSelect }: Props) {
         onChange={(e) => setQuery(e.target.value)}
         sx={{ mb: 2 }}
       />
-      {filtered.length === 0 ? (
-        <Typography color="text.secondary">{t("pair.noUsers")}</Typography>
-      ) : (
-        <ChoiceList maxHeight={380}>
-          {filtered.map((user) => (
+      <ChoiceList maxHeight={380}>
+        <ChoiceOption
+          selected={false}
+          emphasize
+          onClick={() => navigate("/flow/account")}
+          primary={
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <PersonAddIcon color="primary" />
+              {t("pair.accountMissing")}
+            </Box>
+          }
+          secondary={t("pair.accountMissingHint")}
+        />
+        {filtered.length === 0 ? (
+          <Box sx={{ px: 2, py: 2 }}>
+            <Typography color="text.secondary">{t("pair.noUsers")}</Typography>
+          </Box>
+        ) : (
+          filtered.map((user) => (
             <ChoiceOption
               key={user.id}
               selected={selected?.id === user.id}
@@ -83,9 +100,9 @@ export default function UserPicker({ selected, onSelect }: Props) {
               primary={user.login}
               secondary={`DCC: ${formatPool(user)}`}
             />
-          ))}
-        </ChoiceList>
-      )}
+          ))
+        )}
+      </ChoiceList>
     </Box>
   );
 }

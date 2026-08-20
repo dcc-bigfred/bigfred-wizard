@@ -10,18 +10,17 @@ import CircularProgress from "@mui/material/CircularProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
-import Step from "@mui/material/Step";
-import StepLabel from "@mui/material/StepLabel";
-import Stepper from "@mui/material/Stepper";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import SentimentSatisfiedAltIcon from "@mui/icons-material/SentimentSatisfiedAlt";
 import { Trans, useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 
 import AppShell from "../components/AppShell";
 import { ChoiceList, ChoiceOption } from "../components/ChoiceList";
 import ErrorAlert from "../components/ErrorAlert";
+import FlowStepper from "../components/FlowStepper";
 import UserPicker from "../components/UserPicker";
 import { api, ApiError } from "../api/client";
 import {
@@ -33,6 +32,7 @@ import {
   type VehicleTemplate,
 } from "../api/types";
 import { useAuth } from "../auth/AuthContext";
+import { useHelp } from "../help/HelpContext";
 import programmingTrackImg from "../logos/programming-track.png";
 
 type Phase = "user" | "noPool" | "pickLoco" | "details" | "address" | "program";
@@ -40,6 +40,13 @@ type Phase = "user" | "noPool" | "pickLoco" | "details" | "address" | "program";
 const PROG_MODE = "prog";
 const STEPPER_KEYS = ["user", "loco", "address", "program"] as const;
 const BASIC_TEMPLATE_NAME = "Basic";
+
+const helpSmileIcon = (
+  <SentimentSatisfiedAltIcon
+    sx={{ fontSize: "1.25rem", verticalAlign: "text-bottom", mx: 0.25 }}
+    aria-hidden
+  />
+);
 
 function formatPool(user: User): string {
   return user.dccPool
@@ -86,6 +93,23 @@ export default function ConfigureLocoPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { me } = useAuth();
+  const { showHelp } = useHelp();
+
+  const showParagraphHelp = (bodyKey: string, count: number) => {
+    showHelp(
+      <>
+        {Array.from({ length: count }, (_, i) => (
+          <Typography
+            key={`${bodyKey}-${i}`}
+            component="p"
+            sx={{ m: 0, "&:not(:last-child)": { mb: 2 } }}
+          >
+            <Trans i18nKey={`${bodyKey}.${i}`} components={{ smile: helpSmileIcon }} />
+          </Typography>
+        ))}
+      </>,
+    );
+  };
 
   const [phase, setPhase] = useState<Phase>("user");
   const [user, setUser] = useState<User | null>(null);
@@ -183,6 +207,10 @@ export default function ConfigureLocoPage() {
     setSavedVehicle(null);
     setProgrammed(false);
     setVehicles(null);
+    // Warm the impersonated drive socket for F2 as this participant.
+    void api.connectDrive(picked.login).catch(() => {
+      /* F2 / diagnostics will surface the error */
+    });
     if (picked.dccPool.length === 0) {
       setPhase("noPool");
       return;
@@ -364,13 +392,10 @@ export default function ConfigureLocoPage() {
 
   return (
     <AppShell title={t("loco.heading")} showBack>
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {STEPPER_KEYS.map((key) => (
-          <Step key={key}>
-            <StepLabel>{t(`loco.steps.${key}`)}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+      <FlowStepper
+        activeStep={activeStep}
+        labels={STEPPER_KEYS.map((key) => t(`loco.steps.${key}`))}
+      />
 
       <Paper sx={{ p: 4 }}>
         <ErrorAlert error={error} />
@@ -616,9 +641,21 @@ export default function ConfigureLocoPage() {
         )}
 
         <Stack direction="row" spacing={2} sx={{ mt: 4 }} justifyContent="space-between">
-          <Button variant="outlined" onClick={goBack} disabled={busy}>
-            {phase === "user" ? t("app.cancel") : t("app.back")}
-          </Button>
+          <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+            <Button variant="outlined" onClick={goBack} disabled={busy}>
+              {phase === "user" ? t("app.cancel") : t("app.back")}
+            </Button>
+            {phase === "user" && (
+              <Button variant="text" onClick={() => showParagraphHelp("loco.whyPickUserBody", 2)}>
+                {t("loco.whyPickUser")}
+              </Button>
+            )}
+            {phase === "address" && (
+              <Button variant="text" onClick={() => showParagraphHelp("loco.whereDccNumberBody", 3)}>
+                {t("loco.whereDccNumber")}
+              </Button>
+            )}
+          </Stack>
 
           {phase === "noPool" && (
             <Button variant="contained" onClick={() => navigate("/")}>

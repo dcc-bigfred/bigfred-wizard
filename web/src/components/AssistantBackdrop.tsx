@@ -2,6 +2,7 @@ import Box from "@mui/material/Box";
 import { keyframes } from "@mui/material/styles";
 
 import conductorUrl from "../assets/conductor.webp";
+import { useHelp } from "../help/HelpContext";
 
 const peekIn = keyframes`
   from {
@@ -21,6 +22,9 @@ const softBob = keyframes`
 
 /** Decorative railway conductor peeking from the bottom-right corner. */
 export default function AssistantBackdrop() {
+  const { content } = useHelp();
+  const hidden = content != null;
+
   return (
     <Box
       aria-hidden
@@ -32,8 +36,9 @@ export default function AssistantBackdrop() {
         zIndex: 0,
         pointerEvents: "none",
         userSelect: "none",
-        opacity: { xs: 0.4, sm: 0.48, md: 0.55 },
-        animation: `${peekIn} 0.9s ease-out both`,
+        opacity: hidden ? 0 : { xs: 0.4, sm: 0.48, md: 0.55 },
+        transition: "opacity 0.25s ease",
+        animation: hidden ? "none" : `${peekIn} 0.9s ease-out both`,
       }}
     >
       <Box
@@ -46,7 +51,7 @@ export default function AssistantBackdrop() {
           width: "100%",
           height: "auto",
           filter: "drop-shadow(0 10px 20px rgba(15, 39, 68, 0.2))",
-          animation: `${softBob} 7s ease-in-out 1s infinite`,
+          animation: hidden ? "none" : `${softBob} 7s ease-in-out 1s infinite`,
         }}
       />
     </Box>

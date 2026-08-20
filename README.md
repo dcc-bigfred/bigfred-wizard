@@ -50,7 +50,12 @@ Phone onboarding QR codes: `GET /api/v1/wizard/qr.svg?target=android|bigfred`
 
 ## Hub config
 
-On the device: `/data/etc/bigfred/wizard/bigfred-wizard.json` (seed ships disabled; `.example` is rewritten beside it on each start). Overlays (init.d, microinit, microdns) live in [bigfred-os](https://github.com/dcc-bigfred/bigfred-os).
+On the device: `/data/etc/bigfred/wizard/bigfred-wizard.json`. At start the daemon
+rewrites the sibling `.example` and, if the live file is missing, seeds it from
+defaults (`enabled: false`). The live file is hot-reloaded via inotify (invalid
+JSON keeps the previous config). Changes to `http` / CORS require a process
+restart. Overlays (init.d, microinit, microdns) live in
+[bigfred-os](https://github.com/dcc-bigfred/bigfred-os).
 
 ```json
 {

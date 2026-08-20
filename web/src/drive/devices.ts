@@ -3,12 +3,14 @@ import type { ComponentType } from "react";
 import androidLogo from "../assets/drive/android.svg";
 import googlePlayLogo from "../assets/drive/google-play.svg";
 import otherPhoneLogo from "../assets/drive/other-phone.svg";
-import railboxLogo from "../assets/drive/railbox.svg";
+import railboxLogo from "../assets/drive/railbox.webp";
 import handsetLogo from "../assets/drive/handset.svg";
-import wlanmausProduct from "../assets/drive/wlanmaus/product.svg";
+import wlanmausLogo from "../logos/roco-wlanmaus.png";
 import wlanmausOk from "../assets/drive/wlanmaus/ok-key.svg";
 import wlanmausSelectLoco from "../assets/drive/wlanmaus/select-loco.svg";
 import wlanmausFnKeys from "../assets/drive/wlanmaus/function-keys.svg";
+import wifredLogo from "../logos/newheiko-wifred.png";
+import longfredMarkwtechLogo from "../logos/longfred-markwtech.png";
 
 import type { RemoteProtocol } from "../api/types";
 
@@ -18,14 +20,28 @@ export type DriveDevice =
   | "wlanmaus"
   | "railbox"
   | "longfred"
-  | "wifred";
+  | "wifred"
+  | "withrottle-advanced";
+
+/** Devices commissioned via wireless-programmer (physical Soft-AP programming). */
+export function isWirelessProgramDevice(d: DriveDevice): boolean {
+  return d === "wifred" || d === "longfred";
+}
 
 export function isPhoneDevice(d: DriveDevice): boolean {
   return d === "android" || d === "otherPhone";
 }
 
+export function isWlanmausDevice(d: DriveDevice): boolean {
+  return d === "wlanmaus";
+}
+
+export function isRailboxDevice(d: DriveDevice): boolean {
+  return d === "railbox";
+}
+
 export function protocolForDevice(d: DriveDevice): RemoteProtocol {
-  return d === "wlanmaus" ? "z21" : "withrottle";
+  return d === "wlanmaus" || d === "railbox" ? "z21" : "withrottle";
 }
 
 export interface DeviceOption {
@@ -38,10 +54,16 @@ export interface DeviceOption {
 export const DEVICE_OPTIONS: DeviceOption[] = [
   { id: "android", image: androidLogo, badge: googlePlayLogo },
   { id: "otherPhone", image: otherPhoneLogo },
-  { id: "wlanmaus", image: wlanmausProduct },
+  { id: "wlanmaus", image: wlanmausLogo },
   { id: "railbox", image: railboxLogo },
-  { id: "longfred", image: handsetLogo },
-  { id: "wifred", image: handsetLogo },
+  { id: "longfred", image: longfredMarkwtechLogo },
+  { id: "wifred", image: wifredLogo },
+  { id: "withrottle-advanced", image: handsetLogo },
+];
+
+/** Sub-devices available under "Inna aplikacja WiThrottle (zaawansowane)". */
+export const WITHROTTLE_ADVANCED_OPTIONS: DeviceOption[] = [
+  { id: "railbox", image: railboxLogo },
 ];
 
 export const WLANMAUS_ASSETS = {
@@ -49,6 +71,20 @@ export const WLANMAUS_ASSETS = {
   selectLoco: wlanmausSelectLoco,
   functionKeys: wlanmausFnKeys,
 };
+
+/** LongFred hardware variants — expandable; each has its own pairing gesture. */
+export type LongFredVariantId = "markwtech";
+
+export interface LongFredVariant {
+  id: LongFredVariantId;
+  image: string;
+  /** i18n keys under `drive.program.longfredVariants.<id>.steps.*` */
+  stepCount: number;
+}
+
+export const LONGFRED_VARIANTS: LongFredVariant[] = [
+  { id: "markwtech", image: longfredMarkwtechLogo, stepCount: 1 },
+];
 
 /** Digits the handset must enter as F0–F9 (or keys 0–9 on WlanMaus). */
 export function pairingDigits(input: {
@@ -84,6 +120,13 @@ export function howToEnterKey(device: DriveDevice): HowToEnterKey {
   if (device === "longfred") return "longfred";
   if (device === "wifred") return "wifred";
   return "withrottle";
+}
+
+/** wireless-programmer driver id for a device. */
+export function wirelessDriverId(d: DriveDevice): "wifred" | "longfred" | null {
+  if (d === "wifred") return "wifred";
+  if (d === "longfred") return "longfred";
+  return null;
 }
 
 // Keep TypeScript happy when assets are typed as string URLs.

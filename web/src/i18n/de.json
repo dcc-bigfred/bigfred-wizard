@@ -16,8 +16,9 @@
     "fullscreen": "Vollbild",
     "exitFullscreen": "Vollbild beenden",
     "disabled": "Der Assistent ist deaktiviert",
-    "disabledHint": "Setze \"enabled\": true in /data/etc/bigfred/wizard/bigfred-wizard.json und starte den Dienst bigfred-wizard neu.",
-    "idleLogout": "Nach Inaktivität abgemeldet."
+    "disabledHint": "Setze \"enabled\": true in /data/etc/bigfred/wizard/bigfred-wizard.json (Änderungen gelten ohne Neustart).",
+    "idleLogout": "Nach Inaktivität abgemeldet.",
+    "about": "Diagnostische Informationen"
   },
   "login": {
     "heading": "Willkommen zur Veranstaltung",
@@ -37,6 +38,8 @@
   "home": {
     "heading": "Was möchtest du tun?",
     "tiles": {
+      "gettingStarted": "Womit anfangen?",
+      "gettingStartedHint": "Kurze Reihenfolge der Schritte auf der Veranstaltung",
       "account": "Neues Konto anlegen",
       "accountHint": "Login, PIN und DCC-Adresspool",
       "drive": "Ich möchte fahren — hilf mir, Regler oder Telefon einzurichten",
@@ -45,10 +48,25 @@
       "locoHint": "DCC-Adresse und Fahrzeugeintrag"
     }
   },
+  "help": {
+    "ok": "OK",
+    "gettingStarted": [
+      "Zuerst Konto anlegen und PIN vergeben — das reicht einmal. Wähle eine einfache PIN, die du dir merkst, z. B. das Geburtsjahr deiner Frau",
+      "Lokomotive auf das Programmiergleis stellen und einrichten",
+      "Handregler oder App zum Fahren einrichten. Auf einem Regler kannst du mehrere Loks haben und ihn jederzeit für andere umprogrammieren"
+    ]
+  },
   "drive": {
     "heading": "Fahren einrichten",
     "pickDevice": "Womit möchtest du fahren?",
     "pickDeviceHint": "Tippe auf die große Karte mit deinem Gerät.",
+    "whatToChoose": "Was soll ich wählen?",
+    "whatToChooseHint": "Hilfe bei der richtigen Wahl",
+    "whatToChooseBody": [
+      "Wenn du einen LongFred- oder WiFred-Handregler hast, wähle ihn. Wenn du stattdessen eine WlanMaus hast und sie bedienen kannst, helfe ich dir auch bei der Einrichtung.",
+      "Kein physischer Regler? Wähle die BigFred-App auf einem Android-Telefon oder auf einem anderen Telefon.",
+      "Die übrigen Optionen sind für fortgeschrittene Nutzer und erfordern technisches Wissen. Leider kann ich dir hier nicht helfen, wenn du ein unbekanntes Gerät oder eine unbekannte App hast — so gern ich auch möchte."
+    ],
     "pickStation": "Welche Zentrale?",
     "startPairing": "Koppeln starten",
     "alreadyPairedTitle": "Ein Regler ist bereits gekoppelt",
@@ -70,17 +88,81 @@
       "qr": "QR-Code",
       "drive": "Fahren",
       "user": "Teilnehmer",
+      "wifi": "WLAN",
       "pairing": "Koppeln",
+      "driveMode": "Fahrmodus",
+      "app": "App",
+      "connect": "Verbindung",
+      "pairSetup": "Koppel-Lok",
       "loco": "Lok",
       "howto": "Anleitung"
     },
+    "wlanmaus": {
+      "wifiQuestion": "Ist die WlanMaus mit dem WLAN verbunden?",
+      "wifiYes": "Ja",
+      "wifiNo": "Nein",
+      "wifiCredentialsTitle": "WLAN-Daten",
+      "wifiSsid": "SSID",
+      "wifiPassword": "Passwort",
+      "wifiZ21Ip": "Z21-Adresse (BigFred)",
+      "wifiOpenNetwork": "(offenes Netz — kein Passwort)",
+      "wifiSteps": {
+        "1": "<menu>[Menu]</menu> 10 s gedrückt halten",
+        "2": "3. Option „Settings“ wählen → <ok>[OK]</ok>",
+        "3": "6. Option „WIFI“ wählen → <ok>[OK]</ok>",
+        "4": "1. Option „SSID“ wählen → <ok>[OK]</ok>",
+        "5": "SEARCH wählen → <ok>[OK]</ok>",
+        "6": "Netzwerk <strong>{{ssid}}</strong> wählen → <ok>[OK]</ok>",
+        "7": "2. Option „PASSWORD“ wählen → <ok>[OK]</ok>",
+        "8": "<strong>{{password}}</strong> eingeben → <ok>[OK]</ok>",
+        "9": "Option 3 „Z21 IP ADDRESS“ wählen → <strong>{{z21Ip}}</strong> eingeben → <ok>[OK]</ok>",
+        "10": "Das „Y“-Symbol rechts sollte nicht mehr blinken und Empfangsstriche zeigen",
+        "11": "STOP 5-mal drücken, um das Menü zu verlassen"
+      },
+      "pairingLead": "Gib den Kopplungscode über die Funktionstasten der WlanMaus ein — drücke:",
+      "driveModeTitle": "Adressmodus zum Fahren aktivieren",
+      "driveModeSteps": {
+        "1": "<menu>[Menu]</menu> 10 s gedrückt halten",
+        "2": "LOCO wählen → <ok>[OK]</ok>",
+        "3": "(7) MODE wählen → <ok>[OK]</ok>",
+        "4": "ADDRESS wählen → <ok>[OK]</ok>",
+        "5": "STOP 5-mal drücken, um das Menü zu verlassen"
+      },
+      "locoListTitle": "Deine Lokomotiven",
+      "locoListHint": "Hier ist deine Lokliste mit DCC-Adressen. An der WlanMaus wechselst du mit den Pfeilen links und rechts die DCC-Adresse und damit die Lok."
+    },
+    "railbox": {
+      "appQrTitle": "RailBOX: Railroad Control installieren",
+      "appQrLead": "Scanne den QR-Code mit der Handy-Kamera — er öffnet Google Play.",
+      "connectTitle": "App mit BigFred verbinden",
+      "connectIp": "BigFred-IP-Adresse",
+      "connectSteps": {
+        "1": "Tippe oben rechts im Menü auf das Zahnrad",
+        "2": "Trage im Feld „IP-Adresse“ <strong>{{z21Ip}}</strong> ein",
+        "3": "Tippe auf „Erneut verbinden“"
+      },
+      "pairSetupTitle": "Koppel-Lok in der App anlegen",
+      "pairSetupSteps": {
+        "1": "Öffne den Reiter mit der Lokliste (Lok-Symbol)",
+        "2": "Tippe auf das Bild",
+        "3": "Wenn die Liste erscheint, tippe unten auf Plus (+)",
+        "4": "Als Fahrzeugname „Parowanie“ eingeben",
+        "5": "Als Adresse „3“ eingeben",
+        "6": "Funktionen 0 bis 9 auswählen",
+        "7": "Auf „ANWENDEN“ tippen"
+      },
+      "pairingLead": "Wähle die Lok „Parowanie“ und gib den Kopplungscode mit den Zifferntasten ein:",
+      "pressKey": "Drücke Taste <strong>{{key}}</strong>",
+      "locoListTitle": "Deine Lokomotiven",
+      "locoListHint": "Jede Lok aus der Liste musst du separat in der RailBOX Railroad Control App anlegen — mit der richtigen DCC-Adresse."
+    },
     "devices": {
       "android": {
-        "title": "Android-Telefon oder -Tablet",
+        "title": "BigFred auf Android (Telefon/Tablet)",
         "hint": "Telefone mit Google Play, z. B. LG, Motorola, Samsung, Xiaomi, Sony, Asus, Nokia, Honor, Blackberry"
       },
       "otherPhone": {
-        "title": "Anderes Telefon",
+        "title": "BigFred auf anderem Telefon",
         "hint": "z. B. Apple iPhone"
       },
       "wlanmaus": {
@@ -93,11 +175,83 @@
       },
       "longfred": {
         "title": "LongFred",
-        "hint": "Netzwerk-Handregler"
+        "hint": "Dedizierter Controller – speziell für BigFred entwickelt"
       },
       "wifred": {
-        "title": "WiFred",
-        "hint": "Netzwerk-Handregler"
+        "title": "WiFred (Heiko Rosemann)",
+        "hint": "Physischer Handregler"
+      },
+      "withrottle-advanced": {
+        "title": "Andere WiThrottle-App (erweitert)",
+        "hint": "Kopplung über WiThrottle — für Fortgeschrittene"
+      }
+    },
+    "program": {
+      "steps": {
+        "user": "Wer fährt",
+        "pin": "Code",
+        "enterPairing": "Regler einschalten",
+        "scan": "Regler finden",
+        "pickRoster": "Loks",
+        "programming": "Programmieren",
+        "done": "Fertig"
+      },
+      "whoDrives": "Wer soll mit diesem Regler fahren?",
+      "pinWifredTitle": "Gib deinen BigFred-PIN ein",
+      "pinWifredHint": "Derselbe PIN wie bei der BigFred-Anmeldung.",
+      "pinInvalid": "Falscher PIN. Bitte erneut versuchen.",
+      "pinLongfredTitle": "Gib deinen BigFred-PIN ein",
+      "pinLongfredHint": "Derselbe PIN wie bei der BigFred-Anmeldung.",
+      "pinContinue": "Weiter",
+      "enterPairingTitle": "Regler in den Kopplungsmodus bringen",
+      "enterPairingContinue": "Weiter, Regler suchen",
+      "wifredEnter": {
+        "1": "Schalte deinen WiFred ein (Lok-Schalter nach oben).",
+        "2": "Halte die gelbe Shift-Taste 5 Sekunden, bis die rote LED blinkt."
+      },
+      "pickVariantTitle": "Welches LongFred-Modell hast du?",
+      "longfredVariants": {
+        "markwtech": {
+          "title": "LongFred (markwtech)",
+          "steps": {
+            "1": "Am eingeschalteten Regler * (Menü) und die rote Stop-Taste 8 Sekunden gleichzeitig halten, bis eine LED blinkt."
+          }
+        }
+      },
+      "scanTitle": "Regler in der Nähe gefunden",
+      "scanEmpty": "Kein Regler gefunden. Stelle sicher, dass er im Kopplungsmodus ist, und versuche es erneut.",
+      "scanRetry": "Erneut suchen",
+      "scanBusy": "Suche Regler…",
+      "rosterTitle": "Wähle die Loks, mit denen du fahren willst",
+      "rosterHint": "Wähle bis zu {{max}} Loks. Die Reihenfolge ist die Reihenfolge am Regler (1, 2, 3…).",
+      "rosterMaxReached": "Auf diesem Regler sind höchstens {{max}} Loks möglich.",
+      "rosterEmpty": "Du hast noch keine Loks. Lege sie zuerst im Lok-Assistenten an.",
+      "rosterContinue": "Regler programmieren",
+      "programmingTitle": "Regler wird programmiert…",
+      "programmingStates": {
+        "queued": "Vorbereitung…",
+        "joining": "Verbindung zum Regler…",
+        "probing": "Einstellungen lesen…",
+        "writing": "Einstellungen speichern…",
+        "verifying": "Prüfen…",
+        "restarting": "Gleich fertig…",
+        "done": "Fertig!",
+        "failed": "Fehlgeschlagen",
+        "cancelled": "Abgebrochen"
+      },
+      "doneTitle": "Dein Regler ist bereit!",
+      "doneLead": "Du kannst jetzt fahren.",
+      "doneHome": "Zurück zum Menü",
+      "failedTitle": "Regler konnte nicht programmiert werden",
+      "failedRetry": "Erneut versuchen",
+      "wifiMissing": "WLAN ist im Assistenten nicht konfiguriert. Bitte den Operator die Einstellungen ergänzen lassen.",
+      "errors": {
+        "busy": "Der Regler ist beschäftigt — bitte gleich nochmal versuchen.",
+        "noCandidates": "Kein Regler gefunden.",
+        "radioBlocked": "Funk ist blockiert. Bitte den Operator um Hilfe bitten.",
+        "wireless_unavailable": "Programmierung ist nicht verfügbar. Bitte den Operator um Hilfe bitten.",
+        "forbidden": "Keine Berechtigung zum Programmieren.",
+        "generic": "Etwas ist schiefgelaufen. Bitte erneut versuchen."
       }
     },
     "phone": {
@@ -164,15 +318,22 @@
       "summary": "Zusammenfassung"
     },
     "loginLabel": "Teilnehmer-Login",
-    "loginHint": "Kleinbuchstaben, ohne Leerzeichen, z. B. tom",
+    "loginHint": "Nur Buchstaben a–z / A–Z, ohne Leerzeichen und Umlaute/Sonderzeichen, z. B. tom",
+    "whyAccount": "Wozu brauche ich ein Konto?",
+    "whyAccountBody": "Damit du einen Handregler programmieren kannst, damit dir niemand deine Fahrzeuge „klaut“, damit wir die Anlage automatisieren können, weil wir wissen, welches Fahrzeug durchfährt, und damit wir als Organisatoren sehen, wer die Anlage wie nutzt — zu Organisationszwecken. Dafür bekommst du die App, einfaches Koppeln kabelloser Regler und Steuerung vom Telefon. Ich finde, es lohnt sich! Viel Spaß!",
+    "organizationLabel": "Clubname (optional)",
+    "organizationHint": "Wird in BigFred als Organisation gespeichert",
+    "summaryOrganization": "Club: {{organization}}",
     "pinLabel": "PIN (4–6 Ziffern)",
     "pinRepeat": "PIN wiederholen",
+    "pinAdvice": "Ein einfaches Zahlencodewort, das du dir merkst — z. B. Geburtsjahr deiner Frau oder deines Kindes. Du brauchst ihn zum Programmieren des Handreglers und in der Telefon-App.",
     "rememberCredentials": "Merke dir Login und PIN — damit meldest du dich in der Telefon-App an.",
     "showPin": "PIN anzeigen",
     "hidePin": "PIN verbergen",
     "pinMismatch": "Die PINs stimmen nicht überein.",
     "pinTooShort": "Die PIN muss 4 bis 6 Ziffern haben.",
     "loginTooShort": "Das Login braucht mindestens 3 Zeichen.",
+    "loginInvalidChars": "Das Login darf nur Buchstaben a–z und A–Z enthalten (keine Umlaute, Ziffern oder Sonderzeichen).",
     "summaryLead": "Das Konto erhält einen Pool von {{count}} DCC-Adressen.",
     "create": "Konto anlegen",
     "created": "Konto {{login}} angelegt.",
@@ -182,7 +343,9 @@
   "pair": {
     "pickUser": "Für wen richten wir das ein?",
     "searchUser": "Teilnehmer suchen",
-    "noUsers": "Noch keine Konten — zuerst ein Teilnehmerkonto anlegen."
+    "noUsers": "Noch keine Konten — zuerst ein Teilnehmerkonto anlegen.",
+    "accountMissing": "Ich sehe mein Konto nicht",
+    "accountMissingHint": "Zum Anlegen eines neuen Kontos"
   },
   "loco": {
     "heading": "Lokomotive einrichten",
@@ -193,6 +356,17 @@
       "program": "Programmierung"
     },
     "noDccPool": "Leider hast du keinen DCC-Adresspool. Bitte den Anlagen-Administrator fragen.",
+    "whyPickUser": "Warum muss ich wählen?",
+    "whyPickUserBody": [
+      "Deine Lok ist dir zugeordnet. Niemand anderes kann damit fahren — so haben wir es gebaut! Es sei denn, du leihst sie jemandem bewusst aus <smile/>",
+      "So können wir die Anlage künftig erweitern — z. B. Ansagen, Bildschirme fürs Publikum oder andere spannende technische Lösungen — weil wir wissen, wer wo fährt. Ist das nicht faszinierender Fortschritt?"
+    ],
+    "whereDccNumber": "Woher soll ich die Nummer kennen?",
+    "whereDccNumberBody": [
+      "Du musst die DCC-Nummer nicht kennen — ich wähle eine aus deinem BigFred-Kontopool und programmiere dann den Decoder.",
+      "Die Nummer steht schon drin; du kannst sie ändern, aber besser so lassen — passt schon!",
+      "Keine Sorge! BigFred merkt sich deine Lok — du musst dir die DCC-Adresse nicht merken; ich kenne die Adresse, du den Namen der Lok! <smile/>"
+    ],
     "pickLoco": "Welche Lok richten wir ein?",
     "pickLocoHint": "Wähle aus der Liste oder füge eine neue hinzu, wenn sie fehlt.",
     "addNewLoco": "Meine Lok steht nicht auf dieser Liste — ich muss sie hinzufügen",
@@ -220,6 +394,54 @@
     "testF2Hint": "F2 läuft auf dem versorgten Hauptgleis (Ops). Stelle die Lok vom Programmiergleis auf ein versorgtes Gleis und tippe — F2 bleibt 1 Sekunde an.",
     "programmingOffline": "Programmierung nicht verfügbar: keine Verbindung zu dcc-bus."
   },
+  "about": {
+    "open": "Diagnostische Informationen",
+    "heading": "Diagnostische Informationen",
+    "refresh": "Aktualisieren",
+    "wizard": "Assistent",
+    "bigfred": "BigFred",
+    "dccbus": "dcc-bus",
+    "wifi": "WLAN / wiThrottle",
+    "wireless": "wireless-programmer",
+    "wirelessHello": "hello",
+    "wirelessLink": "link-status",
+    "enabled": "Aktiviert",
+    "bigfredUrl": "Öffentliche BigFred-URL",
+    "androidAppUrl": "Android-App-URL",
+    "ssoClientId": "SSO-Client-ID",
+    "defaultProtocol": "Standardprotokoll",
+    "redirectUris": "Redirect-URIs",
+    "version": "Version",
+    "tagCommit": "Tag-Commit",
+    "buildCommit": "Build-Commit",
+    "buildTime": "Build-Zeit",
+    "commit": "Commit",
+    "connected": "Verbunden",
+    "disconnected": "Keine Verbindung",
+    "commandStation": "Zentrale",
+    "progOutput": "Programmierausgang",
+    "reconnects": "Neuverbindungen",
+    "lastError": "Letzter Fehler",
+    "driveSocket": "F2-(Drive)-Sitzung",
+    "driveAs": "F2 als Benutzer",
+    "wifiSsid": "SSID",
+    "wifiPsk": "WLAN-Passwort",
+    "pskSet": "Gesetzt",
+    "pskOpen": "Keins (offenes Netz)",
+    "throttleHost": "wiThrottle-Host",
+    "throttlePort": "wiThrottle-Port",
+    "throttleAuto": "Automatisch (mDNS)",
+    "drivers": "Treiber",
+    "interface": "Schnittstelle",
+    "busy": "Beschäftigt",
+    "rfkill": "rfkill",
+    "rfkillOk": "Frei",
+    "rfkillBlocked": "Gesperrt",
+    "yes": "Ja",
+    "no": "Nein",
+    "none": "Keine",
+    "unset": "Nicht gesetzt"
+  },
   "errors": {
     "generic": "Etwas ist schiefgelaufen.",
     "unauthorized": "Sitzung abgelaufen — bitte erneut anmelden.",
@@ -231,6 +453,13 @@
     "dcc_pool_exhausted": "Keine freien DCC-Adressen mehr im Pool.",
     "invalid_address": "Ungültige DCC-Adresse.",
     "bigfred_unreachable": "Der BigFred-Server ist nicht erreichbar.",
-    "qr_url_unset": "Keine URL für diesen QR-Code konfiguriert."
+    "qr_url_unset": "Keine URL für diesen QR-Code konfiguriert.",
+    "busy": "Der Regler ist beschäftigt — bitte gleich nochmal versuchen.",
+    "noCandidates": "Kein Regler gefunden.",
+    "radioBlocked": "Funk ist blockiert. Bitte den Operator um Hilfe bitten.",
+    "wireless_unavailable": "Programmierung ist nicht verfügbar. Bitte den Operator um Hilfe bitten.",
+    "wireless_timeout": "Programmierung hat nicht rechtzeitig geantwortet.",
+    "wifi_not_configured": "WLAN ist im Assistenten nicht konfiguriert. Bitte den Operator die Einstellungen ergänzen lassen.",
+    "forbidden": "Keine Berechtigung zum Programmieren."
   }
 }

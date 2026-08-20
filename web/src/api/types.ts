@@ -11,6 +11,28 @@ export interface WizardConfig {
   ssoClientId: string;
   redirectUris: string[];
   defaultRemoteProtocol: string;
+  /** WiFi SSID for handset commissioning (empty until configured). */
+  wifiSsid: string;
+  /** Whether a WiFi PSK is configured (never the raw secret). */
+  wifiPskConfigured: boolean;
+  throttleServerHost: string;
+  throttleServerPort: number;
+  throttleServerAutomatic: boolean;
+}
+
+export interface HandsetSetup {
+  wifiSsid: string;
+  wifiPsk: string;
+  bigfredHost: string;
+  bigfredIpv4?: string;
+}
+
+/** Payload from BigFred GET /api/v1/version (proxied). */
+export interface BigFredVersionInfo {
+  version: string;
+  tagCommit?: string;
+  buildCommit?: string;
+  buildTime?: string;
 }
 
 export interface TokenResponse {
@@ -197,4 +219,6 @@ export interface ProgrammingStatus {
   defaultProgrammingTrackOutput?: string;
   lastError?: string;
   reconnects: number;
+  driveConnected?: boolean;
+  driveAs?: string;
 }

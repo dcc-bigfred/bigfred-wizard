@@ -50,7 +50,8 @@ pub async fn token(
     if body.code.trim().is_empty() {
         return Err(ApiError::bad_request("missing_code"));
     }
-    if !state.cfg.redirect_uri_allowed(&body.redirect_uri) {
+    let cfg = state.config().await;
+    if !cfg.redirect_uri_allowed(&body.redirect_uri) {
         return Err(ApiError::bad_request("invalid_redirect_uri"));
     }
 
@@ -58,14 +59,14 @@ pub async fn token(
     // does fs read/parse/write/chmod/chown and would otherwise run on every
     // token exchange. Startup already calls `ensure`; this is a fallback
     // for the race where BigFred's drop-in dir appears after boot.
-    let secret = match ensure_client::load_secret(&state.cfg) {
+    let secret = match ensure_client::load_secret(&cfg) {
         Ok(Some(secret)) => secret,
         Ok(None) => {
             tracing::info!("oauth drop-in missing on token exchange — seeding");
-            ensure_client::ensure(&state.cfg).map_err(|err| {
+            ensure_client::ensure(&cfg).map_err(|err| {
                 ApiError::internal("oauth_client_ensure_failed").with_detail(err.to_string())
             })?;
-            ensure_client::load_secret(&state.cfg)
+            ensure_client::load_secret(&cfg)
                 .map_err(|err| {
                     ApiError::internal("oauth_client_unreadable").with_detail(err.to_string())
                 })?
@@ -74,10 +75,10 @@ pub async fn token(
         Err(err) => {
             // Parse error → try to re-seed a clean drop-in before failing.
             tracing::warn!(error = %err, "oauth drop-in unreadable — re-seeding");
-            ensure_client::ensure(&state.cfg).map_err(|err| {
+            ensure_client::ensure(&cfg).map_err(|err| {
                 ApiError::internal("oauth_client_ensure_failed").with_detail(err.to_string())
             })?;
-            ensure_client::load_secret(&state.cfg)
+            ensure_client::load_secret(&cfg)
                 .map_err(|err| {
                     ApiError::internal("oauth_client_unreadable").with_detail(err.to_string())
                 })?
@@ -85,14 +86,14 @@ pub async fn token(
         }
     };
 
-    let url = format!("{}/api/v1/auth/oauth/token", state.cfg.bigfred_api_base());
+    let url = format!("{}/api/v1/auth/oauth/token", cfg.bigfred_api_base());
     let res = state
         .http
         .post(&url)
         .json(&UpstreamRequest {
             grant_type: "authorization_code",
             code: body.code.trim(),
-            client_id: &state.cfg.sso_client_id,
+            client_id: &cfg.sso_client_id,
             client_secret: &secret,
             redirect_uri: body.redirect_uri.trim(),
         })
