@@ -15,8 +15,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::UnixStream;
 use wp_proto::{
     CandidateRef, ErrorBody, HelloResult, JobParams, JobSnapshot, Params, ProgramParams,
-    ProgramRequestWire, ProgramResult, Request, RequestKind, Response, ResultBody,
-    MAX_FRAME_BYTES,
+    ProgramRequestWire, ProgramResult, Request, RequestKind, Response, ResultBody, MAX_FRAME_BYTES,
 };
 
 use crate::error::{ApiError, ApiResult};
@@ -44,12 +43,11 @@ impl WirelessClient {
         let socket = self.socket_path().await;
         match tokio::time::timeout(CONNECT_TIMEOUT, UnixStream::connect(&socket)).await {
             Ok(Ok(s)) => Ok(s),
-            Ok(Err(e)) => Err(ApiError::unavailable("wireless_unavailable").with_detail(format!(
-                "connect {}: {e}",
-                socket.display()
-            ))),
-            Err(_) => Err(ApiError::unavailable("wireless_unavailable")
-                .with_detail("connect timed out")),
+            Ok(Err(e)) => Err(ApiError::unavailable("wireless_unavailable")
+                .with_detail(format!("connect {}: {e}", socket.display()))),
+            Err(_) => {
+                Err(ApiError::unavailable("wireless_unavailable").with_detail("connect timed out"))
+            }
         }
     }
 
@@ -64,20 +62,14 @@ impl WirelessClient {
         Ok(resp)
     }
 
-    async fn expect_result(
-        &self,
-        req: Request,
-        expected: RequestKind,
-    ) -> ApiResult<ResultBody> {
+    async fn expect_result(&self, req: Request, expected: RequestKind) -> ApiResult<ResultBody> {
         let resp = self.round_trip(&req).await?;
         if let Some(e) = resp.error {
             return Err(map_daemon_error(e));
         }
         if resp.kind != expected {
-            return Err(ApiError::internal("wireless_unexpected_response").with_detail(format!(
-                "expected {:?}, got {:?}",
-                expected, resp.kind
-            )));
+            return Err(ApiError::internal("wireless_unexpected_response")
+                .with_detail(format!("expected {:?}, got {:?}", expected, resp.kind)));
         }
         resp.result.ok_or_else(|| {
             ApiError::internal("wireless_unexpected_response").with_detail("missing result")
@@ -203,9 +195,8 @@ fn unexpected_body(b: ResultBody) -> ApiError {
 }
 
 async fn write_frame_async(stream: &mut UnixStream, msg: &impl serde::Serialize) -> ApiResult<()> {
-    let payload = serde_json::to_vec(msg).map_err(|e| {
-        ApiError::internal("wireless_encode").with_detail(e.to_string())
-    })?;
+    let payload = serde_json::to_vec(msg)
+        .map_err(|e| ApiError::internal("wireless_encode").with_detail(e.to_string()))?;
     if payload.len() > MAX_FRAME_BYTES {
         return Err(ApiError::bad_request("wireless_frame_too_large"));
     }
@@ -225,9 +216,8 @@ async fn read_frame_async(stream: &mut UnixStream) -> ApiResult<Response> {
     }
     let mut payload = vec![0u8; len];
     stream.read_exact(&mut payload).await.map_err(io_err)?;
-    serde_json::from_slice(&payload).map_err(|e| {
-        ApiError::internal("wireless_decode").with_detail(e.to_string())
-    })
+    serde_json::from_slice(&payload)
+        .map_err(|e| ApiError::internal("wireless_decode").with_detail(e.to_string()))
 }
 
 fn io_err(e: std::io::Error) -> ApiError {
@@ -314,12 +304,7 @@ pub async fn program(
         bigfred: body.bigfred,
         roster_mode: body.roster_mode,
     };
-    Ok(Json(
-        state
-            .wireless
-            .program(body.candidate, request)
-            .await?,
-    ))
+    Ok(Json(state.wireless.program(body.candidate, request).await?))
 }
 
 pub async fn job_cancel(

@@ -34,8 +34,8 @@ use tokio_tungstenite::tungstenite::http::header::HeaderName;
 use tokio_tungstenite::tungstenite::Message;
 
 use crate::config::Config;
-use tokio::sync::RwLock;
 use crate::error::ApiError;
+use tokio::sync::RwLock;
 
 /// dcc-bus frame types used by the wizard.
 pub const FRAME_CV_READ: &str = "loco.cvRead";
@@ -341,7 +341,7 @@ impl DccBusClient {
             .ok_or_else(|| ApiError::internal("dcc_bus_drive_session_lost"))?
             .session;
 
-        let on_result = send_and_wait(
+        send_and_wait(
             session,
             FRAME_SET_FUNCTION,
             serde_json::json!({
@@ -350,10 +350,7 @@ impl DccBusClient {
                 "on": true,
             }),
         )
-        .await;
-        if let Err(err) = on_result {
-            return Err(err);
-        }
+        .await?;
 
         let pulse_guard = PulseOffGuard {
             tx: session.tx.clone(),

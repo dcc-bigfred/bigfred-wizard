@@ -52,9 +52,7 @@ pub async fn verify_pin(
         }))
         .send()
         .await
-        .map_err(|err| {
-            ApiError::unavailable("bigfred_unreachable").with_detail(err.to_string())
-        })?;
+        .map_err(|err| ApiError::unavailable("bigfred_unreachable").with_detail(err.to_string()))?;
 
     if res.status().is_success() {
         // Drop the minted session — the kiosk must not keep a driver JWT.
