@@ -134,15 +134,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         bigfred = %bigfred,
         "bigfred-wizard listening"
     );
-    axum::serve(
-        listener,
-        router(state, cors_enabled, &cors_origins),
-    )
-    .with_graceful_shutdown(async move {
-        shutdown_signal().await;
-        watch_stop.store(true, std::sync::atomic::Ordering::SeqCst);
-    })
-    .await?;
+    axum::serve(listener, router(state, cors_enabled, &cors_origins))
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            watch_stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        })
+        .await?;
     Ok(())
 }
 
@@ -274,7 +271,10 @@ fn router(state: AppState, cors_enabled: bool, cors_origins: &[String]) -> Route
         )
         .route("/api/v1/wizard/wireless/scan", get(wireless_api::scan))
         .route("/api/v1/wizard/wireless/probe", post(wireless_api::probe))
-        .route("/api/v1/wizard/wireless/program", post(wireless_api::program))
+        .route(
+            "/api/v1/wizard/wireless/program",
+            post(wireless_api::program),
+        )
         .route(
             "/api/v1/wizard/wireless/jobs/:id/events",
             get(wireless_api::job_events),

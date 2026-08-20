@@ -248,10 +248,7 @@ pub async fn status(State(state): State<AppState>, headers: HeaderMap) -> ApiRes
 }
 
 /// Warms the dcc-bus WebSocket if it is not already connected.
-pub async fn connect(
-    State(state): State<AppState>,
-    headers: HeaderMap,
-) -> ApiResult<Json<Status>> {
+pub async fn connect(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Status>> {
     let token = bearer(&headers)?;
     if !state.config().await.enabled {
         return Err(ApiError::new(
@@ -283,9 +280,7 @@ pub async fn drive_connect(
             "wizard_disabled",
         ));
     }
-    Ok(Json(
-        state.dcc.ensure_drive(&token, &body.as_login).await?,
-    ))
+    Ok(Json(state.dcc.ensure_drive(&token, &body.as_login).await?))
 }
 
 async fn run(

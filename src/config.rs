@@ -10,15 +10,19 @@ const DATA_DIR_VARS: [&str; 2] = ["BIGFRED_DATA_DIR", "DATA_DIR"];
 const DATA_DIR_FALLBACK: &str = "/data";
 
 /// TCP port the wizard listens on by default (`http: "0.0.0.0:8091"`).
-/// Every builtin redirect URI MUST target this port — otherwise BigFred
+/// Production builtin redirect URIs MUST target this port — otherwise BigFred
 /// sends the tablet browser to a port where nothing answers and SSO breaks.
-/// Referenced by tests to lock the allowlist to the listen port.
 #[allow(dead_code)]
 pub const WIZARD_DEFAULT_PORT: u16 = 8091;
 
+/// Vite `make dev-web` port. Allowed on one builtin URI so local SSO works
+/// when the SPA is served from the frontend proxy instead of the daemon.
+#[allow(dead_code)]
+pub const VITE_DEV_PORT: u16 = 5175;
+
 /// Redirect URIs always present in the wizard allowlist and OAuth drop-in.
-/// Ports are derived from [`WIZARD_DEFAULT_PORT`] so the allowlist cannot
-/// drift away from the address the wizard actually binds.
+/// Production hosts use [`WIZARD_DEFAULT_PORT`]; `bigfred.local` also has
+/// [`VITE_DEV_PORT`] for local Vite. Tests lock the allowlist to those two.
 pub const BUILTIN_REDIRECT_URIS: &[&str] = &[
     "http://bigfred.local:8091/auth/callback",
     "http://bigfred.local:5175/auth/callback",
@@ -341,11 +345,10 @@ fn write_config_json(path: &Path, cfg: &Config) -> Result<(), ConfigError> {
             source,
         })?;
     }
-    let mut body =
-        serde_json::to_vec_pretty(cfg).map_err(|source| ConfigError::Serialize {
-            path: path.to_path_buf(),
-            source,
-        })?;
+    let mut body = serde_json::to_vec_pretty(cfg).map_err(|source| ConfigError::Serialize {
+        path: path.to_path_buf(),
+        source,
+    })?;
     body.push(b'\n');
     std::fs::write(path, body).map_err(|source| ConfigError::Write {
         path: path.to_path_buf(),
@@ -387,9 +390,9 @@ mod tests {
         }
     }
 
-    /// Builtin redirect URIs must point at the port the wizard binds by
-    /// default. A drift here (e.g. 8081 vs 8091) silently breaks SSO on the
-    /// tablet because BigFred redirects the browser to a dead port.
+    /// Builtin redirect URIs must point at the wizard listen port or the
+    /// Vite dev port. A drift here (e.g. 8081 vs 8091) silently breaks SSO
+    /// on the tablet because BigFred redirects the browser to a dead port.
     #[test]
     fn builtin_redirect_uris_match_default_port() {
         let default = Config::default();
@@ -401,6 +404,7 @@ mod tests {
             .expect("default http must be host:port");
         assert_eq!(listen_port, WIZARD_DEFAULT_PORT);
 
+        let mut saw_listen = false;
         for uri in BUILTIN_REDIRECT_URIS {
             let port = uri
                 .strip_prefix("http://")
@@ -408,11 +412,18 @@ mod tests {
                 .and_then(|host| host.rsplit(':').next())
                 .and_then(|p| p.parse::<u16>().ok())
                 .unwrap_or_else(|| panic!("builtin URI without port: {uri}"));
-            assert_eq!(
-                port, WIZARD_DEFAULT_PORT,
-                "builtin {uri} targets port {port}, wizard listens on {WIZARD_DEFAULT_PORT}"
+            assert!(
+                port == WIZARD_DEFAULT_PORT || port == VITE_DEV_PORT,
+                "builtin {uri} targets port {port}, expected {WIZARD_DEFAULT_PORT} or {VITE_DEV_PORT}"
             );
+            if port == WIZARD_DEFAULT_PORT {
+                saw_listen = true;
+            }
         }
+        assert!(
+            saw_listen,
+            "builtins must include at least one URI on wizard port {WIZARD_DEFAULT_PORT}"
+        );
     }
 
     #[test]
@@ -519,8 +530,10 @@ mod tests {
         assert!(!cfg.enabled);
         assert_eq!(cfg.throttle_server_port, 12090);
         // Second call must not overwrite an existing live file.
-        let mut edited = Config::default();
-        edited.enabled = true;
+        let edited = Config {
+            enabled: true,
+            ..Default::default()
+        };
         write_config_json(&cfg_path, &edited).unwrap();
         let reloaded = ensure_config_files(&cfg_path).expect("ensure again");
         assert!(reloaded.enabled);
