@@ -11,6 +11,7 @@ import wlanmausSelectLoco from "../assets/drive/wlanmaus/select-loco.svg";
 import wlanmausFnKeys from "../assets/drive/wlanmaus/function-keys.svg";
 import wifredLogo from "../logos/newheiko-wifred.png";
 import longfredMarkwtechLogo from "../logos/longfred-markwtech.png";
+import fredLogo from "../logos/fred.png";
 
 import type { RemoteProtocol } from "../api/types";
 
@@ -21,11 +22,16 @@ export type DriveDevice =
   | "railbox"
   | "longfred"
   | "wifred"
+  | "fred"
   | "withrottle-advanced";
 
 /** Devices commissioned via wireless-programmer (physical Soft-AP programming). */
 export function isWirelessProgramDevice(d: DriveDevice): boolean {
   return d === "wifred" || d === "longfred";
+}
+
+export function isFredProgramDevice(d: DriveDevice): boolean {
+  return d === "fred";
 }
 
 export function isPhoneDevice(d: DriveDevice): boolean {
@@ -58,6 +64,7 @@ export const DEVICE_OPTIONS: DeviceOption[] = [
   { id: "railbox", image: railboxLogo },
   { id: "longfred", image: longfredMarkwtechLogo },
   { id: "wifred", image: wifredLogo },
+  { id: "fred", image: fredLogo },
   { id: "withrottle-advanced", image: handsetLogo },
 ];
 
@@ -123,9 +130,10 @@ export function howToEnterKey(device: DriveDevice): HowToEnterKey {
 }
 
 /** wireless-programmer driver id for a device. */
-export function wirelessDriverId(d: DriveDevice): "wifred" | "longfred" | null {
+export function wirelessDriverId(d: DriveDevice): "wifred" | "longfred" | "fred" | null {
   if (d === "wifred") return "wifred";
   if (d === "longfred") return "longfred";
+  if (d === "fred") return "fred";
   return null;
 }
 

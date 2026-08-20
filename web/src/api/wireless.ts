@@ -130,7 +130,10 @@ function safeParse(text: string): unknown {
 export const wirelessApi = {
   hello: () => requestJson<HelloResult>("/api/v1/wizard/wireless/hello"),
   linkStatus: () => requestJson<LinkStatus>("/api/v1/wizard/wireless/link-status"),
-  scan: () => requestJson<Candidate[]>("/api/v1/wizard/wireless/scan"),
+  scan: (mode?: "z21") =>
+    requestJson<Candidate[]>(
+      mode ? `/api/v1/wizard/wireless/scan?mode=${encodeURIComponent(mode)}` : "/api/v1/wizard/wireless/scan",
+    ),
   program: (body: ProgramFromWizard) =>
     requestJson<ProgramResult>("/api/v1/wizard/wireless/program", {
       method: "POST",

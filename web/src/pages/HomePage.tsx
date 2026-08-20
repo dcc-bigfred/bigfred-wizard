@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 
 import AppShell from "../components/AppShell";
 import { useHelp } from "../help/HelpContext";
+import fredLogo from "../logos/fred.png";
 
 interface NavTile {
   key: string;
@@ -79,6 +80,25 @@ export default function HomePage() {
             </CardActionArea>
           </Card>
         ))}
+        <Card sx={{ borderLeft: "10px solid #334155" }}>
+          <CardActionArea
+            onClick={() => navigate("/flow/drive?device=fred&guest=1")}
+            sx={{ p: 3, minHeight: 160 }}
+          >
+            <Box
+              component="img"
+              src={fredLogo}
+              alt=""
+              sx={{ width: 72, height: 72, objectFit: "contain", display: "block" }}
+            />
+            <Typography variant="h5" sx={{ mt: 1 }}>
+              {t("home.tiles.fredGuest")}
+            </Typography>
+            <Typography variant="body1" color="text.secondary">
+              {t("home.tiles.fredGuestHint")}
+            </Typography>
+          </CardActionArea>
+        </Card>
       </Box>
     </AppShell>
   );

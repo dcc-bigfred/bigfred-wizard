@@ -45,7 +45,9 @@
       "drive": "I want to drive — help me set up a handset or phone",
       "driveHint": "Phone, WlanMaus, LongFred, WiFred…",
       "loco": "Set up my locomotive",
-      "locoHint": "DCC address and roster entry"
+      "locoHint": "DCC address and roster entry",
+      "fredGuest": "Program a wired FRED without an account",
+      "fredGuestHint": "Enter a DCC address and plug the FRED into LocoNet — no participant login."
     }
   },
   "help": {
@@ -181,6 +183,10 @@
         "title": "WiFred (Heiko Rosemann)",
         "hint": "Physical throttle handset"
       },
+      "fred": {
+        "title": "Digitrax FRED",
+        "hint": "Wired LocoNet throttle — programmed through a Z21"
+      },
       "withrottle-advanced": {
         "title": "Other WiThrottle app (advanced)",
         "hint": "Pair over WiThrottle — for advanced users"
@@ -194,7 +200,11 @@
         "scan": "Find handset",
         "pickRoster": "Locomotives",
         "programming": "Programming",
-        "done": "Done"
+        "done": "Done",
+        "accountAsk": "Account",
+        "address": "DCC address",
+        "z21": "Command station",
+        "askLoco": "Locomotive"
       },
       "whoDrives": "Who will drive with this handset?",
       "pinWifredTitle": "Enter your BigFred PIN",
@@ -248,11 +258,32 @@
       "errors": {
         "busy": "The handset is busy — try again in a moment.",
         "noCandidates": "No handset found.",
+        "dispatchFailed": "The command station rejected DISPATCH_PUT. Check that the FRED is in a LocoNet jack and that the chosen Z21 is LocoNet master.",
+        "z21NoLocoNet": "This station does not support LocoNet address dispatch. Choose a physical Z21 with an L-NET / LOCONET jack.",
+        "invalid_address": "DCC address must be a number from 1 to 10239.",
         "radioBlocked": "The radio is blocked. Ask the operator for help.",
         "wireless_unavailable": "Programming is unavailable. Ask the operator for help.",
         "forbidden": "Not allowed to program the handset.",
         "generic": "Something went wrong. Please try again."
       }
+    },
+    "fred": {
+      "accountAskTitle": "How do you want to program the FRED?",
+      "accountYes": "I have a BigFred account and want to program my locomotive",
+      "accountYesHint": "Pick a participant and a locomotive from the list.",
+      "accountNo": "I don't have an account — I just want to type a DCC address into the FRED",
+      "accountNoHint": "No sign-in — only the DCC number.",
+      "dccTitle": "DCC address",
+      "dccHint": "Enter the address the FRED should get (1–10239).",
+      "dccLabel": "DCC address",
+      "rosterTitle": "Choose a locomotive for the FRED",
+      "z21Title": "Choose the Z21 command station address you are plugging the FRED into (LocoNet jack labelled L-NET, LOCONET-T, or LOCONET-B)",
+      "z21Empty": "No Z21 command station found. Make sure it is on this network and try again.",
+      "z21Busy": "Looking for Z21 command stations…",
+      "plugLead": "Plug the FRED into a LocoNet jack — it will be marked L-NET, LOCONET-T, or LOCONET-B — then press Program",
+      "askLocoTitle": "Do you want to program a locomotive to this address now?",
+      "askLocoYes": "Yes",
+      "askLocoNo": "No, finish"
     },
     "phone": {
       "scanPlayTitle": "Scan the code and install BigFred",

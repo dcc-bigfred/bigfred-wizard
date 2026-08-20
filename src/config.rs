@@ -86,6 +86,34 @@ pub struct Config {
     /// Path to the wireless-programmer Unix socket.
     #[serde(default = "default_wireless_socket")]
     pub wireless_programmer_socket: String,
+    /// Digitrax FRED programming via a physical Z21 LAN command station.
+    #[serde(default)]
+    pub fred_programming: FredProgrammingConfig,
+}
+
+/// FRED programming options (public; no secrets).
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FredProgrammingConfig {
+    /// Optional fixed Z21 LAN endpoint. Skip scan only when both are set.
+    pub z21: FredZ21Config,
+}
+
+/// Fixed Z21 LAN address used to skip the station picker.
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FredZ21Config {
+    /// IPv4 or hostname. Empty means “scan”.
+    pub address: String,
+    /// UDP port. `0` means “scan” even if `address` is set.
+    pub port: u16,
+}
+
+impl FredZ21Config {
+    /// Skip the Z21 picker only when both fields are explicitly set.
+    pub fn skip_scan(&self) -> bool {
+        !self.address.trim().is_empty() && self.port != 0
+    }
 }
 
 fn default_throttle_host() -> String {
@@ -132,6 +160,7 @@ impl Default for Config {
             throttle_server_port: default_throttle_port(),
             throttle_server_automatic: default_true(),
             wireless_programmer_socket: default_wireless_socket(),
+            fred_programming: FredProgrammingConfig::default(),
         }
     }
 }
@@ -156,6 +185,7 @@ pub struct PublicConfig {
     pub throttle_server_host: String,
     pub throttle_server_port: u16,
     pub throttle_server_automatic: bool,
+    pub fred_programming: FredProgrammingConfig,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -225,6 +255,12 @@ impl Config {
             throttle_server_host: self.throttle_server_host.trim().to_string(),
             throttle_server_port: self.throttle_server_port,
             throttle_server_automatic: self.throttle_server_automatic,
+            fred_programming: FredProgrammingConfig {
+                z21: FredZ21Config {
+                    address: self.fred_programming.z21.address.trim().to_string(),
+                    port: self.fred_programming.z21.port,
+                },
+            },
         }
     }
 
@@ -463,6 +499,27 @@ mod tests {
         assert_eq!(json["wifiSsid"], "test-ssid");
         assert_eq!(json["throttleServerHost"], "bigfred.local");
         assert_eq!(json["throttleServerPort"], 12090);
+        assert_eq!(json["fredProgramming"]["z21"]["address"], "");
+        assert_eq!(json["fredProgramming"]["z21"]["port"], 0);
+    }
+
+    #[test]
+    fn fred_z21_skip_requires_address_and_port() {
+        assert!(!FredZ21Config::default().skip_scan());
+        assert!(
+            !FredZ21Config {
+                address: "192.168.0.111".into(),
+                port: 0,
+            }
+            .skip_scan()
+        );
+        assert!(
+            FredZ21Config {
+                address: "192.168.0.111".into(),
+                port: 21105,
+            }
+            .skip_scan()
+        );
     }
 
     #[test]

@@ -15,7 +15,7 @@ import Typography from "@mui/material/Typography";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SentimentSatisfiedAltIcon from "@mui/icons-material/SentimentSatisfiedAlt";
 import { Trans, useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import AppShell from "../components/AppShell";
 import { ChoiceList, ChoiceOption } from "../components/ChoiceList";
@@ -36,6 +36,13 @@ import { useHelp } from "../help/HelpContext";
 import programmingTrackImg from "../logos/programming-track.png";
 
 type Phase = "user" | "noPool" | "pickLoco" | "details" | "address" | "program";
+
+interface FredLocoState {
+  fromFred?: boolean;
+  address?: number;
+  userLogin?: string;
+  vehicleId?: string;
+}
 
 const PROG_MODE = "prog";
 const STEPPER_KEYS = ["user", "loco", "address", "program"] as const;
@@ -92,8 +99,11 @@ function suggestAddress(user: User, vehicles: Vehicle[], existing: Vehicle | nul
 export default function ConfigureLocoPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const { me } = useAuth();
   const { showHelp } = useHelp();
+  const fredState = (location.state ?? {}) as FredLocoState;
+  const fromFred = Boolean(fredState.fromFred && fredState.address != null);
 
   const showParagraphHelp = (bodyKey: string, count: number) => {
     showHelp(
@@ -111,7 +121,7 @@ export default function ConfigureLocoPage() {
     );
   };
 
-  const [phase, setPhase] = useState<Phase>("user");
+  const [phase, setPhase] = useState<Phase>(fromFred ? "program" : "user");
   const [user, setUser] = useState<User | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [existing, setExisting] = useState<Vehicle | null>(null);
@@ -123,7 +133,9 @@ export default function ConfigureLocoPage() {
   const [assignment, setAssignment] = useState("");
   const [revisionDate, setRevisionDate] = useState("");
 
-  const [addressText, setAddressText] = useState("");
+  const [addressText, setAddressText] = useState(
+    fromFred && fredState.address != null ? String(fredState.address) : "",
+  );
   const [templates, setTemplates] = useState<VehicleTemplate[] | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<VehicleTemplate | null>(null);
   const [savedVehicle, setSavedVehicle] = useState<Vehicle | null>(null);
@@ -144,6 +156,33 @@ export default function ConfigureLocoPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!fromFred || fredState.address == null) return;
+    let cancelled = false;
+    (async () => {
+      if (!fredState.userLogin) return;
+      try {
+        const users = await api.users();
+        if (cancelled) return;
+        const u = users.find((x) => x.login === fredState.userLogin) ?? null;
+        setUser(u);
+        if (fredState.vehicleId) {
+          const list = await api.vehicles(fredState.userLogin);
+          if (cancelled) return;
+          const v = list.find((x) => x.id === fredState.vehicleId) ?? null;
+          setSavedVehicle(v);
+          setExisting(v);
+          if (v) setName(v.name);
+        }
+      } catch (err) {
+        if (!cancelled) setError(err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fromFred, fredState.address, fredState.userLogin, fredState.vehicleId]);
 
   useEffect(() => {
     if (phase !== "address") return;
@@ -379,6 +418,10 @@ export default function ConfigureLocoPage() {
         }
         break;
       case "program":
+        if (fromFred) {
+          navigate("/");
+          break;
+        }
         // Vehicle already persisted — allow editing address again (re-save on Next).
         // Clear template so Dalej does not re-attach and overwrite functions.
         setProgrammed(false);
@@ -590,21 +633,25 @@ export default function ConfigureLocoPage() {
                     name: savedVehicle?.name ?? name,
                   })}
                 </Alert>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  {t("loco.testF2Hint")}
-                </Alert>
-                <Button
-                  variant="outlined"
-                  disabled={testingF2 || busy || !savedVehicle}
-                  onClick={() => void testF2()}
-                  sx={{ mb: 2 }}
-                >
-                  {testingF2 ? (
-                    <CircularProgress size={22} color="inherit" />
-                  ) : (
-                    t("loco.testF2")
-                  )}
-                </Button>
+                {user ? (
+                  <>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      {t("loco.testF2Hint")}
+                    </Alert>
+                    <Button
+                      variant="outlined"
+                      disabled={testingF2 || busy || !savedVehicle}
+                      onClick={() => void testF2()}
+                      sx={{ mb: 2 }}
+                    >
+                      {testingF2 ? (
+                        <CircularProgress size={22} color="inherit" />
+                      ) : (
+                        t("loco.testF2")
+                      )}
+                    </Button>
+                  </>
+                ) : null}
               </>
             ) : (
               <>
