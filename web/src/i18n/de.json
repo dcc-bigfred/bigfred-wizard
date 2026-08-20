@@ -261,6 +261,7 @@
         "dispatchFailed": "Die Zentrale hat DISPATCH_PUT abgelehnt. Prüfe, ob der FRED in einer LocoNet-Buchse steckt und die gewählte Z21 LocoNet-Master ist.",
         "z21NoLocoNet": "Diese Zentrale unterstützt keine LocoNet-Adressvergabe. Wähle eine physische Z21 mit L-NET- / LOCONET-Buchse.",
         "invalid_address": "Die DCC-Adresse muss eine Zahl von 1 bis 10239 sein.",
+        "unreachable": "Die Z21-Zentrale konnte nicht erreicht werden. Stelle sicher, dass sie im selben Netz ist und die Adresse stimmt.",
         "radioBlocked": "Funk ist blockiert. Bitte den Operator um Hilfe bitten.",
         "wireless_unavailable": "Programmierung ist nicht verfügbar. Bitte den Operator um Hilfe bitten.",
         "forbidden": "Keine Berechtigung zum Programmieren.",

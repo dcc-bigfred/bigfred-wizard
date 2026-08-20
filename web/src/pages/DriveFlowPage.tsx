@@ -964,7 +964,11 @@ export default function DriveFlowPage() {
             <TextField
               label={t("drive.fred.dccLabel")}
               value={fredAddressText}
-              onChange={(e) => setFredAddressText(e.target.value.replace(/\D/g, "").slice(0, 5))}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/\D/g, "").slice(0, 5);
+                const n = Number(raw);
+                setFredAddressText(n > 10239 ? "10239" : raw);
+              }}
               inputMode="numeric"
               fullWidth
               autoFocus

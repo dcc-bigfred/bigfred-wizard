@@ -506,20 +506,16 @@ mod tests {
     #[test]
     fn fred_z21_skip_requires_address_and_port() {
         assert!(!FredZ21Config::default().skip_scan());
-        assert!(
-            !FredZ21Config {
-                address: "192.168.0.111".into(),
-                port: 0,
-            }
-            .skip_scan()
-        );
-        assert!(
-            FredZ21Config {
-                address: "192.168.0.111".into(),
-                port: 21105,
-            }
-            .skip_scan()
-        );
+        assert!(!FredZ21Config {
+            address: "192.168.0.111".into(),
+            port: 0,
+        }
+        .skip_scan());
+        assert!(FredZ21Config {
+            address: "192.168.0.111".into(),
+            port: 21105,
+        }
+        .skip_scan());
     }
 
     #[test]

@@ -261,6 +261,7 @@
         "dispatchFailed": "The command station rejected DISPATCH_PUT. Check that the FRED is in a LocoNet jack and that the chosen Z21 is LocoNet master.",
         "z21NoLocoNet": "This station does not support LocoNet address dispatch. Choose a physical Z21 with an L-NET / LOCONET jack.",
         "invalid_address": "DCC address must be a number from 1 to 10239.",
+        "unreachable": "Could not reach the Z21 command station. Make sure it is on this network and the address is correct.",
         "radioBlocked": "The radio is blocked. Ask the operator for help.",
         "wireless_unavailable": "Programming is unavailable. Ask the operator for help.",
         "forbidden": "Not allowed to program the handset.",

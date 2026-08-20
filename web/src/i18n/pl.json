@@ -261,6 +261,7 @@
         "dispatchFailed": "Centralka odrzuciła DISPATCH_PUT. Sprawdź, czy FRED jest w gnieździe LocoNet i czy wybrana Z21 jest masterem LocoNet.",
         "z21NoLocoNet": "Ta centralka nie obsługuje wysyłki adresu przez LocoNet. Wybierz fizyczną Z21 z gniazdem L-NET / LOCONET.",
         "invalid_address": "Adres DCC musi być liczbą od 1 do 10239.",
+        "unreachable": "Nie udało się połączyć z centralką Z21. Sprawdź, czy jest w tej samej sieci i czy adres jest poprawny.",
         "radioBlocked": "Radio jest zablokowane. Poproś operatora o pomoc.",
         "wireless_unavailable": "Usługa programowania jest niedostępna. Poproś operatora o pomoc.",
         "forbidden": "Brak uprawnień do programowania pilota.",
