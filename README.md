@@ -1,12 +1,16 @@
 # BigFred Wizard
 
-<img src="docs/logo.png" alt="BigFred Wizard" width="284" />
-
-<img src="docs/screenshot-main.png" alt="BigFred Wizard main menu — five large tiles asking what you would like to do" width="360" />
+<p align="center">
+  <img src="docs/logo.png" alt="BigFred Wizard" width="284" />
+</p>
 
 BigFred Wizard is the helper on the event tablet: it walks guests through everything they need to drive on the layout. An organizer signs in once; after that participants tap large tiles and follow on-screen steps — no technical knowledge required. The wizard speaks Polish, English and German and can run fullscreen like a kiosk.
 
 ## What you can do
+
+<p align="center">
+  <img src="docs/screenshot-main.png" alt="BigFred Wizard main menu — five large tiles asking what you would like to do" width="360" />
+</p>
 
 - See a short “where do I start?” order for the event
 - Create a participant account (login, PIN, and reserved locomotive addresses)
