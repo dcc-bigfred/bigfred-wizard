@@ -31,6 +31,8 @@ pub struct OAuthClientFile {
     pub cors_origins: Vec<String>,
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default)]
+    pub share_session: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -95,6 +97,7 @@ pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
         cors_enabled: false,
         cors_origins: Vec::new(),
         enabled: true,
+        share_session: false,
     };
     write_private(
         &path,
@@ -318,6 +321,44 @@ mod tests {
             let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
             assert_eq!(mode, 0o640);
         }
+        std::env::remove_var("BIGFRED_DATA_DIR");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn sync_redirect_uris_preserves_share_session() {
+        let tmp = std::env::temp_dir().join(format!("wizard-test-{}", uuid::Uuid::new_v4()));
+        std::env::set_var("BIGFRED_DATA_DIR", &tmp);
+        let cfg = Config::default();
+        let path = client_path(&cfg);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let file = OAuthClientFile {
+            client_id: cfg.sso_client_id.clone(),
+            client_secret: "aabbccdd".repeat(8),
+            display_name: "BigFred Wizard".to_string(),
+            redirect_uris: vec!["http://example.test/cb".to_string()],
+            cors_enabled: false,
+            cors_origins: Vec::new(),
+            enabled: true,
+            share_session: true,
+        };
+        std::fs::write(
+            &path,
+            serde_json::to_vec_pretty(&file).unwrap(),
+        )
+        .unwrap();
+
+        ensure(&cfg).expect("ensure");
+        let raw = std::fs::read(&path).unwrap();
+        let parsed: OAuthClientFile = serde_json::from_slice(&raw).unwrap();
+        assert!(parsed.share_session, "shareSession must survive redirect URI merge");
+        assert!(
+            parsed
+                .redirect_uris
+                .iter()
+                .any(|u| u == "http://example.test/cb")
+        );
+
         std::env::remove_var("BIGFRED_DATA_DIR");
         let _ = std::fs::remove_dir_all(&tmp);
     }

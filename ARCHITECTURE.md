@@ -197,6 +197,12 @@ is the diagnostic page (versions, dcc-bus, wireless-programmer hello).
 5. Access token lives in `sessionStorage` only. Idle timeout
    (`idleTimeoutSecs`, default 86400) logs the kiosk out.
 
+The wizard OAuth drop-in is seeded with `shareSession: false`. Logging in
+through wizard SSO therefore does **not** leave a BigFred web session cookie.
+An existing `bigfred_session` (operator already signed in to BigFred) is still
+reused silently. Set `"shareSession": true` in the drop-in to restore the old
+shared-session behaviour.
+
 Builtin redirect URIs always include `:8091` (production) and
 `bigfred.local:5175` (Vite). A port drift here silently breaks tablet
 SSO.
