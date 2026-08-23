@@ -484,7 +484,9 @@
   "errors": {
     "generic": "Coś poszło nie tak.",
     "unauthorized": "Sesja wygasła — zaloguj się ponownie.",
-    "dcc_bus_unavailable": "Brak połączenia z centralą (dcc-bus). Otwórz makietę w BigFredzie i spróbuj ponownie.",
+    "dcc_bus_unavailable": "Brak połączenia z centralą (dcc-bus). Spróbuj ponownie albo otwórz makietę w BigFredzie.",
+    "command_station_not_attached": "Ta centralka nie jest podłączona do tej makiety.",
+    "dcc_bus_unreachable": "Daemon centralki nie odpowiada. Spróbuj za chwilę.",
     "no_programming_station": "Żadna centrala nie ma włączonego serwera pilotów (Z21 / WiThrottle).",
     "programming_timeout": "Centrala nie odpowiedziała na czas.",
     "wizard_disabled": "Kreator jest wyłączony w konfiguracji.",

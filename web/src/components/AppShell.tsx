@@ -26,6 +26,7 @@ import {
 } from "../i18n";
 import { useAuth } from "../auth/AuthContext";
 import AssistantBackdrop from "./AssistantBackdrop";
+import ErrorAlert from "./ErrorAlert";
 
 interface Props {
   title?: string;
@@ -44,7 +45,7 @@ export default function AppShell({ title, showBack = false, children }: Props) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const { token, logout } = useAuth();
+  const { token, logout, programmingError, retryProgramming } = useAuth();
   const current = activeLanguage(i18n.resolvedLanguage ?? i18n.language);
   const onAbout = location.pathname === "/about";
   const [fullscreen, setFullscreen] = useState(
@@ -156,6 +157,14 @@ export default function AppShell({ title, showBack = false, children }: Props) {
             {title}
           </Typography>
         )}
+        {token && programmingError ? (
+          <ErrorAlert error={programmingError} />
+        ) : null}
+        {token && programmingError ? (
+          <Button variant="outlined" onClick={() => void retryProgramming()} sx={{ mb: 2 }}>
+            {t("app.retry")}
+          </Button>
+        ) : null}
         {children}
       </Container>
       <Box
