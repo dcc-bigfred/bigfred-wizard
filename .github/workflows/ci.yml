@@ -27,9 +27,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Format
-        run: cargo fmt --all -- --check
-
       - name: Fetch wp-proto sibling repo
         run: |
           set -euo pipefail
@@ -37,6 +34,9 @@ jobs:
           if [ ! -f "${dest}/crates/wp-proto/Cargo.toml" ]; then
             git clone --depth 1 https://github.com/dcc-bigfred/wireless-programmer.git "$dest"
           fi
+
+      - name: Format
+        run: cargo fmt --all -- --check
 
       - name: Clippy
         run: cargo clippy --all-targets -- -D warnings
