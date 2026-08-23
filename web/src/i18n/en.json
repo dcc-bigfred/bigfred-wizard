@@ -484,7 +484,9 @@
   "errors": {
     "generic": "Something went wrong.",
     "unauthorized": "Session expired — please sign in again.",
-    "dcc_bus_unavailable": "No connection to the command station (dcc-bus). Open the layout in BigFred and retry.",
+    "dcc_bus_unavailable": "No connection to the command station (dcc-bus). Retry, or open the layout in BigFred.",
+    "command_station_not_attached": "That command station is not attached to this layout.",
+    "dcc_bus_unreachable": "The command-station daemon is not reachable. Retry in a moment.",
     "no_programming_station": "No command station has a handset server enabled (Z21 / WiThrottle).",
     "programming_timeout": "The command station did not answer in time.",
     "wizard_disabled": "The wizard is disabled in the configuration.",

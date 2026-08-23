@@ -125,6 +125,10 @@ export const api = {
 
   me: () => request<Me>("/api/v1/auth/me"),
 
+  /** Dashboard presence poll; side-effect: refreshes dcc-bus programs for the layout. */
+  refreshLayoutPresence: (layoutId: number) =>
+    request<unknown>(`/api/v1/layouts/${layoutId}/presence`),
+
   layoutsForLogin: () =>
     request<LoginLayout[]>("/api/v1/layouts/login", { auth: false }),
 

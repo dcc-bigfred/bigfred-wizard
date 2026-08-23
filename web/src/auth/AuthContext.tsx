@@ -24,6 +24,8 @@ interface AuthValue {
   logout: (reason?: "idle" | "manual") => void;
   idleReason: "idle" | null;
   clearIdleReason: () => void;
+  programmingError: unknown;
+  retryProgramming: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -52,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(getToken());
   const [me, setMe] = useState<Me | null>(null);
   const [idleReason, setIdleReason] = useState<"idle" | null>(null);
+  const [programmingError, setProgrammingError] = useState<unknown>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,15 +101,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null);
       setTokenState(null);
       setMe(null);
+      setProgrammingError(null);
       setIdleReason(reason === "idle" ? "idle" : null);
       navigate("/login", { replace: true });
     },
     [navigate],
   );
 
+  const warmProgramming = useCallback(async (layoutId: number) => {
+    try {
+      await api.refreshLayoutPresence(layoutId);
+    } catch {
+      // Presence is a best-effort dcc-bus refresh; connect still tries.
+    }
+    await api.connectProgramming();
+  }, []);
+
   useEffect(() => {
     if (!token) {
       setMe(null);
+      setProgrammingError(null);
       return;
     }
     let cancelled = false;
@@ -117,12 +131,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         setMe(value);
-        // Warm dcc-bus as soon as the organizer is authenticated so loco
-        // programming does not pay the connect latency on first use.
+        // Presence rebuilds dcc-bus programs for the layout; then warm the
+        // programming socket so loco CV flows do not pay connect latency.
         try {
-          await api.connectProgramming();
-        } catch {
-          // Surface later via status / programming flows.
+          await warmProgramming(value.layoutId);
+          if (!cancelled) {
+            setProgrammingError(null);
+          }
+        } catch (err) {
+          if (!cancelled) {
+            setProgrammingError(err);
+          }
         }
       })
       .catch(() => {
@@ -133,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [token, logout]);
+  }, [token, logout, warmProgramming]);
 
   // Idle logout: the tablet stays on the login screen between guests.
   useEffect(() => {
@@ -188,6 +207,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMe(await api.me());
   }, []);
 
+  const retryProgramming = useCallback(async () => {
+    if (!me?.layoutId) {
+      return;
+    }
+    try {
+      await warmProgramming(me.layoutId);
+      setProgrammingError(null);
+    } catch (err) {
+      setProgrammingError(err);
+    }
+  }, [me, warmProgramming]);
+
   const value = useMemo<AuthValue>(
     () => ({
       config,
@@ -201,8 +232,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       idleReason,
       clearIdleReason: () => setIdleReason(null),
+      programmingError,
+      retryProgramming,
     }),
-    [config, configError, ready, token, me, redirectUri, startSso, adoptToken, logout, idleReason],
+    [
+      config,
+      configError,
+      ready,
+      token,
+      me,
+      redirectUri,
+      startSso,
+      adoptToken,
+      logout,
+      idleReason,
+      programmingError,
+      retryProgramming,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

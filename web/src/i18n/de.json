@@ -484,7 +484,9 @@
   "errors": {
     "generic": "Etwas ist schiefgelaufen.",
     "unauthorized": "Sitzung abgelaufen — bitte erneut anmelden.",
-    "dcc_bus_unavailable": "Keine Verbindung zur Zentrale (dcc-bus). Öffne die Anlage in BigFred und versuche es erneut.",
+    "dcc_bus_unavailable": "Keine Verbindung zur Zentrale (dcc-bus). Erneut versuchen oder die Anlage in BigFred öffnen.",
+    "command_station_not_attached": "Diese Zentrale ist dieser Anlage nicht zugeordnet.",
+    "dcc_bus_unreachable": "Der Zentralen-Daemon ist nicht erreichbar. Gleich nochmal versuchen.",
     "no_programming_station": "Keine Zentrale hat einen Handregler-Server aktiv (Z21 / WiThrottle).",
     "programming_timeout": "Die Zentrale hat nicht rechtzeitig geantwortet.",
     "wizard_disabled": "Der Assistent ist in der Konfiguration deaktiviert.",
