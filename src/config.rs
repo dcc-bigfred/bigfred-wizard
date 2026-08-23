@@ -89,6 +89,10 @@ pub struct Config {
     /// Digitrax FRED programming via a physical Z21 LAN command station.
     #[serde(default)]
     pub fred_programming: FredProgrammingConfig,
+    /// Loco CV / address programming: via BigFred dcc-bus (default) or
+    /// UDP straight to a Z21 / RailBOX.
+    #[serde(default)]
+    pub loco_programming: LocoProgrammingConfig,
 }
 
 /// FRED programming options (public; no secrets).
@@ -113,6 +117,43 @@ impl FredZ21Config {
     /// Skip the Z21 picker only when both fields are explicitly set.
     pub fn skip_scan(&self) -> bool {
         !self.address.trim().is_empty() && self.port != 0
+    }
+}
+
+/// How the wizard programs locomotive decoders.
+#[derive(Debug, Clone, Deserialize, Serialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LocoProgrammingMode {
+    #[default]
+    Bigfred,
+    Direct,
+}
+
+/// Loco CV programming options (public; no secrets).
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct LocoProgrammingConfig {
+    /// `bigfred` (default) uses dcc-bus; `direct` talks UDP to a Z21.
+    pub mode: LocoProgrammingMode,
+    /// Used when [`LocoProgrammingMode::Direct`].
+    pub z21: FredZ21Config,
+    /// When both this and [`Self::layout_id`] are set, skip catalogue autodetection.
+    pub dcc_bus_id: Option<u64>,
+    /// Layout id paired with [`Self::dcc_bus_id`]. Ignored unless both are set.
+    pub layout_id: Option<u64>,
+}
+
+impl LocoProgrammingConfig {
+    /// Hardcoded (command-station id, layout id) when both are present and non-zero.
+    pub fn fixed_dcc_bus(&self) -> Option<(u64, u64)> {
+        match (self.dcc_bus_id, self.layout_id) {
+            (Some(cs), Some(layout)) if cs > 0 && layout > 0 => Some((cs, layout)),
+            _ => None,
+        }
+    }
+
+    pub fn is_direct(&self) -> bool {
+        self.mode == LocoProgrammingMode::Direct
     }
 }
 
@@ -161,6 +202,7 @@ impl Default for Config {
             throttle_server_automatic: default_true(),
             wireless_programmer_socket: default_wireless_socket(),
             fred_programming: FredProgrammingConfig::default(),
+            loco_programming: LocoProgrammingConfig::default(),
         }
     }
 }
@@ -186,6 +228,7 @@ pub struct PublicConfig {
     pub throttle_server_port: u16,
     pub throttle_server_automatic: bool,
     pub fred_programming: FredProgrammingConfig,
+    pub loco_programming: LocoProgrammingConfig,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -260,6 +303,15 @@ impl Config {
                     address: self.fred_programming.z21.address.trim().to_string(),
                     port: self.fred_programming.z21.port,
                 },
+            },
+            loco_programming: LocoProgrammingConfig {
+                mode: self.loco_programming.mode.clone(),
+                z21: FredZ21Config {
+                    address: self.loco_programming.z21.address.trim().to_string(),
+                    port: self.loco_programming.z21.port,
+                },
+                dcc_bus_id: self.loco_programming.dcc_bus_id,
+                layout_id: self.loco_programming.layout_id,
             },
         }
     }
@@ -501,6 +553,8 @@ mod tests {
         assert_eq!(json["throttleServerPort"], 12090);
         assert_eq!(json["fredProgramming"]["z21"]["address"], "");
         assert_eq!(json["fredProgramming"]["z21"]["port"], 0);
+        assert_eq!(json["locoProgramming"]["mode"], "bigfred");
+        assert_eq!(json["locoProgramming"]["z21"]["port"], 0);
     }
 
     #[test]
@@ -516,6 +570,18 @@ mod tests {
             port: 21105,
         }
         .skip_scan());
+    }
+
+    #[test]
+    fn loco_programming_fixed_ids_require_both() {
+        let mut cfg = LocoProgrammingConfig::default();
+        assert!(cfg.fixed_dcc_bus().is_none());
+        cfg.dcc_bus_id = Some(1);
+        assert!(cfg.fixed_dcc_bus().is_none());
+        cfg.layout_id = Some(1);
+        assert_eq!(cfg.fixed_dcc_bus(), Some((1, 1)));
+        cfg.mode = LocoProgrammingMode::Direct;
+        assert!(cfg.is_direct());
     }
 
     #[test]

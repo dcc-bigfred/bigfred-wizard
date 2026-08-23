@@ -92,7 +92,7 @@ pub struct Ack {
 }
 
 /// One row of `GET /api/v1/command-stations/catalogue`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CommandStation {
     pub id: u64,
@@ -367,7 +367,18 @@ impl DccBusClient {
     }
 
     /// Picks the programming-capable command station with the lowest id.
+    /// When `locoProgramming.dccBusId` and `layoutId` are both set, those
+    /// values are used instead of catalogue autodetection.
     pub async fn pick_station(&self, token: &str) -> Result<CommandStation, ApiError> {
+        let fixed = self.cfg.read().await.loco_programming.fixed_dcc_bus();
+        if let Some((cs_id, _)) = fixed {
+            return Ok(CommandStation {
+                id: cs_id,
+                name: format!("dcc-bus #{cs_id}"),
+                programming: true,
+                ..CommandStation::default()
+            });
+        }
         let api_base = self.cfg.read().await.bigfred_api_base();
         let url = format!("{api_base}/api/v1/command-stations/catalogue");
         let res = self

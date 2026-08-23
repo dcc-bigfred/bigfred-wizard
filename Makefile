@@ -25,7 +25,7 @@ else
 endif
 
 .PHONY: all build web-build release-musl host test test-release-assertions \
-	fmt clippy clean dist dev-backend dev-web
+	fmt clippy clean dist dev-backend dev-web deploy-hub
 
 all: build
 
@@ -95,3 +95,34 @@ clean:
 	$(CARGO) clean
 	rm -rf "$(WEB_DIR)/node_modules" dist
 	find "$(WEB_DIR)/dist" -mindepth 1 ! -name .gitkeep -exec rm -rf {} + 2>/dev/null || true
+
+# --- Hub deploy (RO rootfs: binary lives on /data) ------------------------
+# Hub runs Dropbear. Older images lack /usr/libexec/sftp-server; -O uses
+# legacy scp. Harmless on images that ship openssh sftp-server.
+#
+#   make deploy-hub
+#   make deploy-hub HUB=192.168.0.10
+#
+# /etc/init.d/bigfred-wizard prefers /data/opt/bigfred/bin/bigfred-wizard
+# over the image copy in /usr/sbin.
+HUB ?= 192.168.0.1
+HUB_USER ?= root
+HUB_SSH ?= $(HUB_USER)@$(HUB)
+SCP ?= scp
+SCP_OPTS ?= -O
+SSH ?= ssh
+DIST_ARM64 ?= dist/bigfred-wizard-linux-arm64
+HUB_BIN_DIR ?= /data/opt/bigfred/bin
+
+# Upload next to the target and rename: writing in place fails with ETXTBSY
+# once the hub is running the /data copy, and rename(2) swaps the inode
+# atomically.
+deploy-hub: release-musl
+	@test -f $(DIST_ARM64) || { echo "error: $(DIST_ARM64) missing — run make release-musl" >&2; exit 1; }
+	$(SSH) $(HUB_SSH) 'mkdir -p $(HUB_BIN_DIR)'
+	$(SCP) $(SCP_OPTS) $(DIST_ARM64) $(HUB_SSH):$(HUB_BIN_DIR)/.bigfred-wizard.new
+	$(SSH) $(HUB_SSH) 'set -e; \
+		cd $(HUB_BIN_DIR); \
+		chmod 755 .bigfred-wizard.new; \
+		mv -f .bigfred-wizard.new bigfred-wizard; \
+		microinit restart bigfred-wizard'

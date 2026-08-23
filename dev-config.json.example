@@ -24,5 +24,9 @@
   "wirelessProgrammerSocket": "/data/run/wireless-programmer/wireless-programmer.sock",
   "fredProgramming": {
     "z21": { "address": "", "port": 0 }
+  },
+  "locoProgramming": {
+    "mode": "bigfred",
+    "z21": { "address": "", "port": 0 }
   }
 }

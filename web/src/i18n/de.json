@@ -494,6 +494,8 @@
     "dcc_pool_exhausted": "Keine freien DCC-Adressen mehr im Pool.",
     "invalid_address": "Ungültige DCC-Adresse.",
     "bigfred_unreachable": "Der BigFred-Server ist nicht erreichbar.",
+    "z21_not_configured": "Direktes Z21-Programmieren braucht Adresse und Port in der Wizard-Konfiguration.",
+    "z21_unreachable": "Die Z21-Zentrale hat im LAN nicht geantwortet.",
     "qr_url_unset": "Keine URL für diesen QR-Code konfiguriert.",
     "busy": "Der Regler ist beschäftigt — bitte gleich nochmal versuchen.",
     "noCandidates": "Kein Regler gefunden.",
