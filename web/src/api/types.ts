@@ -21,6 +21,12 @@ export interface WizardConfig {
   fredProgramming: {
     z21: { address: string; port: number };
   };
+  locoProgramming: {
+    mode: "bigfred" | "direct";
+    z21: { address: string; port: number };
+    dccBusId?: number;
+    layoutId?: number;
+  };
 }
 
 export interface HandsetSetup {

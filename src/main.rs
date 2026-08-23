@@ -19,6 +19,7 @@ mod pin_api;
 mod programming_api;
 mod qr;
 mod wireless_api;
+mod z21_direct;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -38,6 +39,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::config::{Config, PublicConfig};
 use crate::dccbus_client::DccBusClient;
+use crate::z21_direct::Z21DirectClient;
 
 /// Production SPA bundle. `make web-build` fills this directory before
 /// cargo runs; the placeholder keeps a fresh checkout compiling.
@@ -64,6 +66,7 @@ pub struct AppState {
     pub cfg: Arc<RwLock<Config>>,
     pub http: reqwest::Client,
     pub dcc: Arc<DccBusClient>,
+    pub z21: Arc<Z21DirectClient>,
     pub pulse_locks: Arc<programming_api::PulseLocks>,
     pub wireless: Arc<wireless_api::WirelessClient>,
 }
@@ -114,6 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         cfg: Arc::clone(&cfg),
         http: http.clone(),
         dcc: Arc::new(DccBusClient::new(Arc::clone(&cfg), http)),
+        z21: Arc::new(Z21DirectClient::new(Arc::clone(&cfg))),
         pulse_locks: Arc::new(programming_api::PulseLocks::default()),
         wireless: Arc::new(wireless_api::WirelessClient::new(Arc::clone(&cfg))),
     };

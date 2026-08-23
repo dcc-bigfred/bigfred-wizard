@@ -131,6 +131,16 @@ pub async fn cvs_read(
         return Err(ApiError::bad_request("invalid_cvs"));
     }
     let mode = validate_mode(body.mode)?;
+    if state.config().await.loco_programming.is_direct() {
+        let ack = state
+            .z21
+            .read_cvs(body.address, &body.cvs, mode.as_deref())
+            .await?;
+        return Ok(Json(ProgrammingResponse {
+            ack,
+            command_station_id: None,
+        }));
+    }
     let payload = json!({ "address": body.address, "cvs": body.cvs, "mode": mode });
     run(&state, &token, FRAME_CV_READ, payload).await
 }
@@ -146,6 +156,16 @@ pub async fn cvs_write(
         return Err(ApiError::bad_request("invalid_cvs"));
     }
     let mode = validate_mode(body.mode)?;
+    if state.config().await.loco_programming.is_direct() {
+        let ack = state
+            .z21
+            .write_cvs(body.address, &body.cvs, mode.as_deref())
+            .await?;
+        return Ok(Json(ProgrammingResponse {
+            ack,
+            command_station_id: None,
+        }));
+    }
     let payload = json!({ "address": body.address, "cvs": body.cvs, "mode": mode });
     run(&state, &token, FRAME_CV_WRITE, payload).await
 }
@@ -166,6 +186,16 @@ pub async fn address_get(
         }
     }
     let payload = json!({ "address": body.address.unwrap_or(0), "mode": mode });
+    if state.config().await.loco_programming.is_direct() {
+        let ack = state
+            .z21
+            .addr_get(body.address.unwrap_or(0), mode.as_deref())
+            .await?;
+        return Ok(Json(ProgrammingResponse {
+            ack,
+            command_station_id: None,
+        }));
+    }
     run(&state, &token, FRAME_ADDR_GET, payload).await
 }
 
@@ -182,6 +212,16 @@ pub async fn address_set(
         "mode": mode,
         "verify": body.verify.unwrap_or(false),
     });
+    if state.config().await.loco_programming.is_direct() {
+        let ack = state
+            .z21
+            .addr_set(body.address, mode.as_deref(), body.verify.unwrap_or(false))
+            .await?;
+        return Ok(Json(ProgrammingResponse {
+            ack,
+            command_station_id: None,
+        }));
+    }
     run(&state, &token, FRAME_ADDR_SET, payload).await
 }
 
@@ -233,6 +273,9 @@ pub async fn function_pulse(
 
 /// Reports the socket state plus the station the wizard would program on.
 pub async fn status(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Status>> {
+    if state.config().await.loco_programming.is_direct() {
+        return Ok(Json(state.z21.status()));
+    }
     let mut status = state.dcc.status();
     if let Ok(token) = bearer(&headers) {
         if let Ok(station) = state.dcc.pick_station(&token).await {
@@ -255,6 +298,9 @@ pub async fn connect(State(state): State<AppState>, headers: HeaderMap) -> ApiRe
             axum::http::StatusCode::FORBIDDEN,
             "wizard_disabled",
         ));
+    }
+    if state.config().await.loco_programming.is_direct() {
+        return Ok(Json(state.z21.ensure_connected().await?));
     }
     Ok(Json(state.dcc.ensure_connected(&token).await?))
 }

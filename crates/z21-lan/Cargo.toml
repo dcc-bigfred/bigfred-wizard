@@ -1,0 +1,18 @@
+[package]
+name = "z21-lan"
+version = "0.1.0"
+edition = "2021"
+description = "Z21 LAN (UDP) framing and locomotive CV programming client"
+license = "MIT"
+publish = false
+
+[lib]
+name = "z21_lan"
+path = "src/lib.rs"
+
+[dependencies]
+thiserror = "1"
+tokio = { version = "1", features = ["net", "time", "sync", "rt", "macros"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["net", "time", "sync", "rt", "macros", "rt-multi-thread"] }

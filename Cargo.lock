@@ -162,6 +162,7 @@ dependencies = [
  "url",
  "uuid",
  "wp-proto",
+ "z21-lan",
 ]
 
 [[package]]
@@ -2025,7 +2026,7 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 
 [[package]]
 name = "wp-proto"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2059,6 +2060,14 @@ dependencies = [
  "quote",
  "syn 2.0.119",
  "synstructure",
+]
+
+[[package]]
+name = "z21-lan"
+version = "0.1.0"
+dependencies = [
+ "thiserror 1.0.69",
+ "tokio",
 ]
 
 [[package]]

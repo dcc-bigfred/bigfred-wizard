@@ -492,6 +492,8 @@
     "dcc_pool_exhausted": "Brak wolnych adresów DCC w puli.",
     "invalid_address": "Nieprawidłowy adres DCC.",
     "bigfred_unreachable": "Serwer BigFred jest niedostępny.",
+    "z21_not_configured": "Tryb direct wymaga adresu i portu Z21 w konfiguracji wizarda.",
+    "z21_unreachable": "Centralka Z21 nie odpowiedziała w sieci LAN.",
     "qr_url_unset": "Brak adresu do kodu QR w konfiguracji.",
     "busy": "Pilot jest zajęty, spróbuj za chwilę.",
     "noCandidates": "Nie znaleziono pilota.",

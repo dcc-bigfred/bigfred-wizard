@@ -492,6 +492,8 @@
     "dcc_pool_exhausted": "No free DCC addresses left in the pool.",
     "invalid_address": "Invalid DCC address.",
     "bigfred_unreachable": "The BigFred server is unreachable.",
+    "z21_not_configured": "Direct Z21 programming needs address and port in the wizard config.",
+    "z21_unreachable": "The Z21 command station did not answer on the LAN.",
     "qr_url_unset": "No URL configured for this QR code.",
     "busy": "The handset is busy — try again in a moment.",
     "noCandidates": "No handset found.",
