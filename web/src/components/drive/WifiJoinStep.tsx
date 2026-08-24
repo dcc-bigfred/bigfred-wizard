@@ -1,13 +1,15 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
-import { Trans, useTranslation } from "react-i18next";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { HandsetSetup } from "../../api/types";
-import NumberedSteps, { type NumberedStep } from "../NumberedSteps";
+import { useErrorText } from "../ErrorAlert";
 import StepNav from "../StepNav";
 import WifiCredentials from "./WifiCredentials";
-import { wifiPasswordDisplay, wifiSsidDisplay } from "./wifi";
+import WifiJoinQr from "./WifiJoinQr";
 
 export type WifiJoinVariant = "howto" | "credentials";
 
@@ -17,15 +19,19 @@ interface Props {
   hint?: string;
   setup: HandsetSetup | null;
   setupLoading: boolean;
+  setupError?: unknown;
+  onRetrySetup?: () => void;
   continueLabel: string;
   continueDisabled?: boolean;
+  stationsError?: unknown;
+  onRetryStations?: () => void;
   onContinue: () => void;
   onBack: () => void;
 }
 
 /**
- * Shared Wi‑Fi join screen: either numbered phone how-to, or credentials-only
- * (non-standard handset — we show SSID/PSK but do not explain the device UI).
+ * Shared Wi‑Fi join screen: QR that adds the network on Android/iPhone,
+ * with optional reveal of the network name and password.
  */
 export default function WifiJoinStep({
   variant,
@@ -33,25 +39,24 @@ export default function WifiJoinStep({
   hint,
   setup,
   setupLoading,
+  setupError,
+  onRetrySetup,
   continueLabel,
   continueDisabled,
+  stationsError,
+  onRetryStations,
   onContinue,
   onBack,
 }: Props) {
   const { t } = useTranslation();
-  const ssid = wifiSsidDisplay(setup);
-  const password = wifiPasswordDisplay(setup, t("drive.wifi.openNetwork"));
-  const ready = !setupLoading && setup != null;
+  const describe = useErrorText();
+  const [showManual, setShowManual] = useState(false);
 
-  const howtoSteps: NumberedStep[] = [1, 2, 3].map((n) => ({
-    body: (
-      <Trans
-        i18nKey={`drive.phone.wifiSteps.${n}`}
-        values={{ ssid, password }}
-        components={{ strong: <strong /> }}
-      />
-    ),
-  }));
+  useEffect(() => {
+    setShowManual(false);
+  }, [setup]);
+
+  const ready = !setupLoading && setup != null && !setupError;
 
   return (
     <Box>
@@ -64,21 +69,63 @@ export default function WifiJoinStep({
         </Alert>
       ) : null}
 
-      {variant === "howto" ? (
-        setupLoading || !setup ? (
-          <WifiCredentials setup={setup} loading={setupLoading} />
-        ) : (
-          <NumberedSteps steps={howtoSteps} />
-        )
+      {ready ? (
+        <>
+          <Typography color="text.secondary" sx={{ mb: 2, fontSize: "1.1rem" }}>
+            {t("drive.wifi.qrLead")}
+          </Typography>
+          <WifiJoinQr />
+          {showManual ? (
+            <WifiCredentials
+              setup={setup}
+              loading={false}
+              size={variant === "credentials" ? "lg" : "md"}
+            />
+          ) : (
+            <Button
+              variant="outlined"
+              onClick={() => setShowManual(true)}
+              sx={{
+                display: "block",
+                width: "100%",
+                whiteSpace: "normal",
+                textAlign: "center",
+                py: 1.5,
+                mb: 1,
+              }}
+            >
+              {t("drive.wifi.showManual")}
+            </Button>
+          )}
+        </>
       ) : (
-        <WifiCredentials setup={setup} loading={setupLoading} size="lg" />
+        <WifiCredentials
+          setup={setup}
+          loading={setupLoading}
+          size={variant === "credentials" ? "lg" : "md"}
+          error={setupError}
+          onRetry={onRetrySetup}
+        />
       )}
+
+      {stationsError ? (
+        <Box sx={{ mt: 2 }}>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {describe(stationsError)}
+          </Alert>
+          {onRetryStations ? (
+            <Button variant="outlined" onClick={onRetryStations}>
+              {t("app.retry")}
+            </Button>
+          ) : null}
+        </Box>
+      ) : null}
 
       <StepNav
         onBack={onBack}
         onNext={onContinue}
         nextLabel={continueLabel}
-        nextDisabled={!ready || continueDisabled}
+        nextDisabled={setupLoading || continueDisabled}
       />
     </Box>
   );

@@ -86,9 +86,12 @@
     "locoNoAddress": "Keine DCC-Adresse",
     "howToEnterTitle": "So wählst du die Lok „{{name}}“ am Gerät",
     "wifi": {
-      "ssid": "Netz",
+      "ssid": "Netzwerkname",
       "password": "Passwort",
-      "openNetwork": "(offenes Netz — kein Passwort)"
+      "openNetwork": "(offenes Netz — kein Passwort)",
+      "qrLead": "Richte die Kamera deines Telefons (Android oder iPhone) auf diesen Code — das WLAN wird automatisch hinzugefügt.",
+      "qrAlt": "QR-Code zum Hinzufügen des WLANs",
+      "showManual": "Ich möchte das Netz selbst wählen und das Passwort eintippen — zeig mir die Daten"
     },
     "stepper": {
       "device": "Gerät",
@@ -166,7 +169,6 @@
     "withrottleAdvanced": {
       "wifiTitle": "Verbinde dich mit dem WLAN über deine App oder den physischen Regler",
       "wifiHint": "Ich kann dir hier nicht zeigen, wie das geht, weil du ein nicht standardmäßiges Gerät gewählt hast.",
-      "pairingLead": "Wähle die Lok „Pair with BigFred“ mit Adresse 3 und gib den Kopplungscode ein, oder setze diesen Code in den Geräteeinstellungen als Gerätenamen.",
       "pairLoco": "Wähle die Lok <strong>Pair with BigFred</strong> mit Adresse <strong>3</strong> und gib den Code mit F0–F9 ein:",
       "orDeviceName": "Oder setze in den Geräteeinstellungen den Gerätenamen auf <strong>{{code}}</strong>."
     },
@@ -312,11 +314,6 @@
       "scanWebLead": "Öffne die Kamera oder einen QR-Scanner und richte ihn auf diesen Code — er öffnet BigFred im Browser.",
       "qrAlt": "QR-Code",
       "wifiTitle": "Melde dich auf dem Telefon im WLAN an",
-      "wifiSteps": {
-        "1": "Wähle das Netz <strong>{{ssid}}</strong>",
-        "2": "Gib das Passwort <strong>{{password}}</strong> ein",
-        "3": "Verbinden"
-      },
       "wifiDone": "Fertig, ich bin verbunden, weiter geht’s",
       "driveTitle": "So fährst du in BigFred",
       "driveSteps": {
@@ -331,10 +328,6 @@
       "openAnyLoco": "Öffne eine beliebige Lok (beliebige Adresse) mit den Pfeiltasten.",
       "powerOnHandset": "Schalte das Gerät ein.",
       "openPairingLoco": "Öffne am Gerät die Kopplungs-Lok.",
-      "openApp": "Öffne die App {{app}}.",
-      "connectBigFred": "Verbinde dich mit dem BigFred-Server im Club-WLAN.",
-      "typeDeviceName": "Setze den Gerätenamen auf: <strong>{{code}}</strong>",
-      "orPairingLoco": "Oder wähle die Lok „Pair with BigFred“ und drücke diese Tasten:",
       "pressWlanmausKey": "Drücke Taste <strong>{{key}}</strong> (entspricht {{f}}).",
       "pressF": "Drücke Taste <strong>{{f}}</strong>."
     },
@@ -521,6 +514,7 @@
     "wireless_unavailable": "Programmierung ist nicht verfügbar. Bitte den Operator um Hilfe bitten.",
     "wireless_timeout": "Programmierung hat nicht rechtzeitig geantwortet.",
     "wifi_not_configured": "WLAN ist im Assistenten nicht konfiguriert. Bitte den Operator die Einstellungen ergänzen lassen.",
+    "stations_loading": "Warte auf die Zentralenliste. Bitte gleich nochmal versuchen.",
     "forbidden": "Keine Berechtigung zum Programmieren."
   }
 }

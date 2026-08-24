@@ -93,6 +93,30 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return payload as T;
 }
 
+/** Authenticated SVG (Wi‑Fi join QR). `<img src>` cannot send Bearer. */
+async function requestSvgBlob(path: string): Promise<Blob> {
+  const headers: Record<string, string> = { Accept: "image/svg+xml" };
+  const token = getToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  const res = await fetch(path, { headers });
+  if (!res.ok) {
+    const text = await res.text();
+    const payload = text ? safeParse(text) : null;
+    const code =
+      (payload && typeof payload === "object" && "error" in payload
+        ? String((payload as { error: unknown }).error)
+        : undefined) ?? `http_${res.status}`;
+    const detail =
+      payload && typeof payload === "object" && "detail" in payload
+        ? String((payload as { detail: unknown }).detail)
+        : undefined;
+    throw new ApiError(res.status, code, detail);
+  }
+  return res.blob();
+}
+
 function safeParse(text: string): unknown {
   try {
     return JSON.parse(text);
@@ -105,6 +129,8 @@ export const api = {
   wizardConfig: () => request<WizardConfig>("/api/v1/wizard/config", { auth: false }),
 
   handsetSetup: () => request<HandsetSetup>("/api/v1/wizard/handset-setup"),
+
+  wifiQrSvg: () => requestSvgBlob("/api/v1/wizard/wifi-qr.svg"),
 
   /** Check a participant PIN without storing a driver session. */
   verifyPin: (login: string, pin: string, layoutId: number) =>

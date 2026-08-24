@@ -342,22 +342,19 @@ mod tests {
             enabled: true,
             share_session: true,
         };
-        std::fs::write(
-            &path,
-            serde_json::to_vec_pretty(&file).unwrap(),
-        )
-        .unwrap();
+        std::fs::write(&path, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
 
         ensure(&cfg).expect("ensure");
         let raw = std::fs::read(&path).unwrap();
         let parsed: OAuthClientFile = serde_json::from_slice(&raw).unwrap();
-        assert!(parsed.share_session, "shareSession must survive redirect URI merge");
         assert!(
-            parsed
-                .redirect_uris
-                .iter()
-                .any(|u| u == "http://example.test/cb")
+            parsed.share_session,
+            "shareSession must survive redirect URI merge"
         );
+        assert!(parsed
+            .redirect_uris
+            .iter()
+            .any(|u| u == "http://example.test/cb"));
 
         std::env::remove_var("BIGFRED_DATA_DIR");
         let _ = std::fs::remove_dir_all(&tmp);
