@@ -46,6 +46,10 @@ export function isRailboxDevice(d: DriveDevice): boolean {
   return d === "railbox";
 }
 
+export function isWithrottleAdvancedDevice(d: DriveDevice): boolean {
+  return d === "withrottle-advanced";
+}
+
 export function protocolForDevice(d: DriveDevice): RemoteProtocol {
   return d === "wlanmaus" || d === "railbox" ? "z21" : "withrottle";
 }
@@ -66,11 +70,6 @@ export const DEVICE_OPTIONS: DeviceOption[] = [
   { id: "wifred", image: wifredLogo },
   { id: "fred", image: fredLogo },
   { id: "withrottle-advanced", image: handsetLogo },
-];
-
-/** Sub-devices available under "Inna aplikacja WiThrottle (zaawansowane)". */
-export const WITHROTTLE_ADVANCED_OPTIONS: DeviceOption[] = [
-  { id: "railbox", image: railboxLogo },
 ];
 
 export const WLANMAUS_ASSETS = {

@@ -22,6 +22,9 @@ import NumberedSteps, { type NumberedStep } from "../components/NumberedSteps";
 import PinDialog from "../components/PinDialog";
 import RosterPicker, { rosterFromVehicles } from "../components/RosterPicker";
 import UserPicker from "../components/UserPicker";
+import WifiJoinStep from "../components/drive/WifiJoinStep";
+import WifiCredentials from "../components/drive/WifiCredentials";
+import { wifiPasswordDisplay, wifiSsidDisplay } from "../components/drive/wifi";
 import { api, ApiError } from "../api/client";
 import type { CommandStation, HandsetSetup, RemotePairing, User, Vehicle, WizardConfig } from "../api/types";
 import {
@@ -43,11 +46,11 @@ import {
   isFredProgramDevice,
   isWirelessProgramDevice,
   isWlanmausDevice,
+  isWithrottleAdvancedDevice,
   LONGFRED_VARIANTS,
   pairingDigits,
   protocolForDevice,
   WLANMAUS_ASSETS,
-  WITHROTTLE_ADVANCED_OPTIONS,
   wirelessDriverId,
   type DriveDevice,
   type LongFredVariantId,
@@ -56,7 +59,7 @@ import fredLogo from "../logos/fred.png";
 
 type Phase =
   | "device"
-  | "advancedDevice"
+  | "phoneWifi"
   | "phoneQr"
   | "phoneDrive"
   | "user"
@@ -70,6 +73,7 @@ type Phase =
   | "railboxConnect"
   | "railboxPairingSetup"
   | "railboxLocoList"
+  | "wtWifi"
   | "pickLoco"
   | "howToEnter"
   // Wireless-programmer flow (WiFred / LongFred):
@@ -161,7 +165,7 @@ export default function DriveFlowPage() {
       return ["device"];
     }
     if (isPhoneDevice(device)) {
-      return ["device", "qr", "drive"];
+      return ["device", "wifi", "qr", "drive"];
     }
     if (isFredProgramDevice(device)) {
       const z21 = skipZ21 ? [] : ["z21"];
@@ -186,7 +190,10 @@ export default function DriveFlowPage() {
       return ["device", "user", "wifi", "pairing", "driveMode", "loco"];
     }
     if (isRailboxDevice(device)) {
-      return ["device", "user", "app", "connect", "pairSetup", "pairing", "loco"];
+      return ["device", "wifi", "user", "app", "connect", "pairSetup", "pairing", "loco"];
+    }
+    if (isWithrottleAdvancedDevice(device)) {
+      return ["device", "user", "wifi", "pairing", "loco", "howto"];
     }
     return ["device", "user", "pairing", "loco", "howto"];
   }, [device, fredGuest, skipZ21]);
@@ -194,7 +201,7 @@ export default function DriveFlowPage() {
   const activeStepIndex = useMemo(() => {
     const map: Record<Phase, string> = {
       device: "device",
-      advancedDevice: "device",
+      phoneWifi: "wifi",
       phoneQr: "qr",
       phoneDrive: "drive",
       user: "user",
@@ -208,6 +215,7 @@ export default function DriveFlowPage() {
       railboxConnect: "connect",
       railboxPairingSetup: "pairSetup",
       railboxLocoList: "loco",
+      wtWifi: "wifi",
       pickLoco: "loco",
       howToEnter: "howto",
       wpPin: "pin",
@@ -242,14 +250,15 @@ export default function DriveFlowPage() {
 
   const pickDevice = (id: DriveDevice) => {
     setError(null);
-    if (id === "withrottle-advanced") {
-      setDevice(null);
-      setPhase("advancedDevice");
+    setHandsetSetup(null);
+    if (id === "android" && (!config?.androidAppUrl || config.androidAppUrl.trim() === "")) {
+      setDevice("otherPhone");
+      setPhase("phoneWifi");
       return;
     }
     setDevice(id);
-    if (isPhoneDevice(id)) {
-      setPhase("phoneQr");
+    if (isPhoneDevice(id) || isRailboxDevice(id)) {
+      setPhase("phoneWifi");
     } else if (isFredProgramDevice(id)) {
       setFredGuest(false);
       setPhase("fredAccountAsk");
@@ -413,28 +422,8 @@ export default function DriveFlowPage() {
     }
   };
 
-  const proceedToWlanmausPairing = useCallback(() => {
-    if (!user || !device || !isWlanmausDevice(device)) {
-      return;
-    }
-    setError(null);
-    if (stations === null) {
-      return;
-    }
-    if (stations.length === 0) {
-      setError(new ApiError(422, "no_programming_station"));
-      return;
-    }
-    if (stations.length === 1 && stations[0]) {
-      setStation(stations[0]);
-      void beginPairing(user, stations[0], device);
-      return;
-    }
-    setPhase("station");
-  }, [user, device, stations, beginPairing]);
-
-  const proceedToRailboxPairing = useCallback(() => {
-    if (!user || !device || !isRailboxDevice(device)) {
+  const proceedToPairingIfReady = useCallback(() => {
+    if (!user || !device) {
       return;
     }
     setError(null);
@@ -475,7 +464,7 @@ export default function DriveFlowPage() {
 
   const onWlanmausWifiYes = () => {
     setWlanmausWifiNeedsSetup(false);
-    proceedToWlanmausPairing();
+    proceedToPairingIfReady();
   };
 
   const goToWlanmausLocoList = async () => {
@@ -582,11 +571,20 @@ export default function DriveFlowPage() {
       setPhase("railboxAppQr");
       return;
     }
+    if (device && isWithrottleAdvancedDevice(device)) {
+      setBusy(false);
+      setPhase("wtWifi");
+      return;
+    }
     setPinError(null);
   };
 
   useEffect(() => {
-    if (phase === "railboxConnect" && !handsetSetup && !handsetSetupLoading) {
+    if (
+      (phase === "phoneWifi" || phase === "wtWifi" || phase === "railboxConnect") &&
+      !handsetSetup &&
+      !handsetSetupLoading
+    ) {
       void loadHandsetSetup();
     }
   }, [phase, handsetSetup, handsetSetupLoading, loadHandsetSetup]);
@@ -601,6 +599,7 @@ export default function DriveFlowPage() {
       isFredProgramDevice(device) ||
       isWlanmausDevice(device) ||
       isRailboxDevice(device) ||
+      isWithrottleAdvancedDevice(device) ||
       pairing
     ) {
       return;
@@ -675,6 +674,19 @@ export default function DriveFlowPage() {
   const cancel = async () => {
     if (me && station && user && pairing && !paired) {
       await api.cancelPairing(me.layoutId, station.id, user.login).catch(() => undefined);
+    }
+    navigate("/");
+  };
+
+  const backFromPairing = async () => {
+    if (me && station && user && pairing && !paired) {
+      await api.cancelPairing(me.layoutId, station.id, user.login).catch(() => undefined);
+    }
+    setPairing(null);
+    setPaired(false);
+    if (device && isWithrottleAdvancedDevice(device)) {
+      setPhase("wtWifi");
+      return;
     }
     navigate("/");
   };
@@ -998,13 +1010,25 @@ export default function DriveFlowPage() {
           </Box>
         )}
 
-        {phase === "advancedDevice" && (
-          <AdvancedDevicePicker
-            onPick={(id) => {
-              setDevice(id);
-              setPhase("user");
+        {phase === "phoneWifi" && (
+          <WifiJoinStep
+            variant="howto"
+            title={t("drive.phone.wifiTitle")}
+            setup={handsetSetup}
+            setupLoading={handsetSetupLoading}
+            continueLabel={t("drive.phone.wifiDone")}
+            onBack={() => {
+              setDevice(null);
+              setHandsetSetup(null);
+              setPhase("device");
             }}
-            onBack={() => setPhase("device")}
+            onContinue={() => {
+              if (device && isRailboxDevice(device)) {
+                setPhase("user");
+                return;
+              }
+              setPhase("phoneQr");
+            }}
           />
         )}
 
@@ -1013,7 +1037,7 @@ export default function DriveFlowPage() {
             device={device}
             config={config}
             onNext={() => setPhase("phoneDrive")}
-            onCancel={() => navigate("/")}
+            onCancel={() => setPhase("phoneWifi")}
           />
         )}
 
@@ -1048,10 +1072,26 @@ export default function DriveFlowPage() {
                     setPhase("fredAccountAsk");
                     return;
                   }
+                  if (device && isRailboxDevice(device)) {
+                    setUser(null);
+                    setPhase("phoneWifi");
+                    return;
+                  }
+                  if (device && isWithrottleAdvancedDevice(device)) {
+                    setUser(null);
+                    setDevice(null);
+                    setPhase("device");
+                    return;
+                  }
                   navigate("/");
                 }}
               >
-                {device && isFredProgramDevice(device) ? t("app.back") : t("app.cancel")}
+                {device &&
+                (isFredProgramDevice(device) ||
+                  isRailboxDevice(device) ||
+                  isWithrottleAdvancedDevice(device))
+                  ? t("app.back")
+                  : t("app.cancel")}
               </Button>
             </Stack>
           </Box>
@@ -1065,7 +1105,7 @@ export default function DriveFlowPage() {
             stationsLoading={stations === null}
             onYes={onWlanmausWifiYes}
             onNo={onWlanmausWifiNo}
-            onContinue={() => proceedToWlanmausPairing()}
+            onContinue={() => proceedToPairingIfReady()}
             onBack={() => {
               setUser(null);
               setWlanmausWifiNeedsSetup(null);
@@ -1116,8 +1156,22 @@ export default function DriveFlowPage() {
         {phase === "railboxPairingSetup" && (
           <RailboxPairingSetupStep
             onBack={() => setPhase("railboxConnect")}
-            onContinue={() => proceedToRailboxPairing()}
+            onContinue={() => proceedToPairingIfReady()}
             stationsLoading={stations === null}
+          />
+        )}
+
+        {phase === "wtWifi" && (
+          <WifiJoinStep
+            variant="credentials"
+            title={t("drive.withrottleAdvanced.wifiTitle")}
+            hint={t("drive.withrottleAdvanced.wifiHint")}
+            setup={handsetSetup}
+            setupLoading={handsetSetupLoading}
+            continueLabel={t("drive.phone.wifiDone")}
+            continueDisabled={stations === null}
+            onBack={() => setPhase("user")}
+            onContinue={() => proceedToPairingIfReady()}
           />
         )}
 
@@ -1440,6 +1494,7 @@ export default function DriveFlowPage() {
                   if (device === "wlanmaus") setPhase("wlanmausWifi");
                   else if (device === "railbox") setPhase("railboxPairingSetup");
                   else if (device === "wifred") setPhase("wpPin");
+                  else if (isWithrottleAdvancedDevice(device)) setPhase("wtWifi");
                   else void cancel();
                 }}
               >
@@ -1489,7 +1544,7 @@ export default function DriveFlowPage() {
             paired={paired}
             expired={expired}
             busy={busy}
-            onCancel={cancel}
+            onCancel={() => void backFromPairing()}
             onContinue={() => {
               if (isWlanmausDevice(device)) setPhase("wlanmausDriveMode");
               else if (isRailboxDevice(device)) void goToRailboxLocoList();
@@ -1619,58 +1674,6 @@ function DevicePicker({ onPick }: { onPick: (id: DriveDevice) => void }) {
   );
 }
 
-function AdvancedDevicePicker({
-  onPick,
-  onBack,
-}: {
-  onPick: (id: DriveDevice) => void;
-  onBack: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <Box>
-      <Typography variant="h5" sx={{ mb: 1 }}>
-        {t("drive.devices.withrottle-advanced.title")}
-      </Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        {t("drive.devices.withrottle-advanced.hint")}
-      </Typography>
-      <Box
-        sx={{
-          display: "grid",
-          gap: 2,
-          gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-        }}
-      >
-        {WITHROTTLE_ADVANCED_OPTIONS.map((opt) => (
-          <Card key={opt.id} variant="outlined">
-            <CardActionArea onClick={() => onPick(opt.id)} sx={{ p: 2.5, minHeight: 140 }}>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box
-                  component="img"
-                  src={opt.image}
-                  alt=""
-                  sx={{ width: 72, height: 72, objectFit: "contain", flexShrink: 0 }}
-                />
-                <Box>
-                  <Typography variant="h6">{t(`drive.devices.${opt.id}.title`)}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                    {t(`drive.devices.${opt.id}.hint`)}
-                  </Typography>
-                </Box>
-              </Stack>
-            </CardActionArea>
-          </Card>
-        ))}
-      </Box>
-      <Stack direction="row" sx={{ mt: 3 }}>
-        <Button variant="outlined" onClick={onBack}>
-          {t("app.back")}
-        </Button>
-      </Stack>
-    </Box>
-  );
-}
 function EnterPairingStep({
   device,
   variant,
@@ -1806,15 +1809,14 @@ function WlanmausWifiStep({
 }) {
   const { t } = useTranslation();
   const z21Ip = setup?.bigfredIpv4 ?? setup?.bigfredHost ?? "—";
-  const passwordDisplay =
-    setup?.wifiPsk?.trim() ? setup.wifiPsk : t("drive.wlanmaus.wifiOpenNetwork");
+  const passwordDisplay = wifiPasswordDisplay(setup, t("drive.wifi.openNetwork"));
 
   const wifiSteps: NumberedStep[] = Array.from({ length: 11 }, (_, i) => ({
     body: (
       <Trans
         i18nKey={`drive.wlanmaus.wifiSteps.${i + 1}`}
         values={{
-          ssid: setup?.wifiSsid ?? "—",
+          ssid: wifiSsidDisplay(setup),
           password: passwordDisplay,
           z21Ip,
         }}
@@ -1868,15 +1870,10 @@ function WlanmausWifiStep({
             {t("drive.wlanmaus.wifiCredentialsTitle")}
           </Typography>
           {setupLoading || !setup ? (
-            <CircularProgress />
+            <WifiCredentials setup={setup} loading={setupLoading} />
           ) : (
             <>
-              <Typography sx={{ mb: 0.5 }}>
-                <strong>{t("drive.wlanmaus.wifiSsid")}:</strong> {setup.wifiSsid}
-              </Typography>
-              <Typography sx={{ mb: 0.5 }}>
-                <strong>{t("drive.wlanmaus.wifiPassword")}:</strong> {passwordDisplay}
-              </Typography>
+              <WifiCredentials setup={setup} loading={false} />
               <Typography sx={{ mb: 2 }}>
                 <strong>{t("drive.wlanmaus.wifiZ21Ip")}:</strong> {z21Ip}
               </Typography>
@@ -2263,8 +2260,6 @@ function PhoneQrStep({
 }) {
   const { t } = useTranslation();
   const target = device === "android" ? "android" : "bigfred";
-  const urlMissing =
-    device === "android" && (!config?.androidAppUrl || config.androidAppUrl.trim() === "");
 
   return (
     <Box sx={{ textAlign: "center" }}>
@@ -2274,26 +2269,20 @@ function PhoneQrStep({
       <Typography color="text.secondary" sx={{ mb: 3 }}>
         {t(device === "android" ? "drive.phone.scanPlayLead" : "drive.phone.scanWebLead")}
       </Typography>
-      {urlMissing ? (
-        <Alert severity="warning" sx={{ textAlign: "left", mb: 3 }}>
-          {t("drive.phone.androidUrlMissing")}
-        </Alert>
-      ) : (
-        <Box
-          component="img"
-          src={`/api/v1/wizard/qr.svg?target=${target}`}
-          alt={t("drive.phone.qrAlt")}
-          sx={{
-            width: { xs: 240, sm: 320 },
-            height: { xs: 240, sm: 320 },
-            bgcolor: "#fff",
-            p: 1,
-            borderRadius: 2,
-            border: "1px solid",
-            borderColor: "divider",
-          }}
-        />
-      )}
+      <Box
+        component="img"
+        src={`/api/v1/wizard/qr.svg?target=${target}`}
+        alt={t("drive.phone.qrAlt")}
+        sx={{
+          width: { xs: 240, sm: 320 },
+          height: { xs: 240, sm: 320 },
+          bgcolor: "#fff",
+          p: 1,
+          borderRadius: 2,
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      />
       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
         {device === "android"
           ? config?.androidAppUrl
@@ -2301,9 +2290,9 @@ function PhoneQrStep({
       </Typography>
       <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
         <Button variant="outlined" onClick={onCancel}>
-          {t("app.cancel")}
+          {t("app.back")}
         </Button>
-        <Button variant="contained" onClick={onNext} disabled={urlMissing}>
+        <Button variant="contained" onClick={onNext}>
           {t("app.next")}
         </Button>
       </Stack>
@@ -2386,6 +2375,26 @@ function PairingStep({
         </Typography>
       )}
 
+      {device === "withrottle-advanced" && (
+        <>
+          <Typography sx={{ mb: 2, fontSize: "1.1rem" }}>
+            {t("drive.withrottleAdvanced.pairingLead")}
+          </Typography>
+          <Typography
+            variant="h3"
+            sx={{
+              mb: 3,
+              letterSpacing: 8,
+              textAlign: "center",
+              fontFamily: "ui-monospace, monospace",
+              fontWeight: 800,
+            }}
+          >
+            {digits}
+          </Typography>
+        </>
+      )}
+
       <NumberedSteps steps={steps} />
 
       {!paired && (
@@ -2396,7 +2405,7 @@ function PairingStep({
 
       <Stack direction="row" justifyContent="space-between" sx={{ mt: 4 }}>
         <Button variant="outlined" onClick={onCancel}>
-          {t("app.cancel")}
+          {device === "withrottle-advanced" ? t("app.back") : t("app.cancel")}
         </Button>
         {expired ? (
           <Button variant="contained" disabled={busy} onClick={onRetry}>
@@ -2437,6 +2446,29 @@ function buildPairingSteps(
 
   if (device === "wlanmaus" || device === "railbox") {
     return pressSteps;
+  }
+
+  if (device === "withrottle-advanced") {
+    return [
+      {
+        body: (
+          <Trans
+            i18nKey="drive.withrottleAdvanced.pairLoco"
+            components={{ strong: <strong /> }}
+          />
+        ),
+      },
+      {
+        body: (
+          <Trans
+            i18nKey="drive.withrottleAdvanced.orDeviceName"
+            values={{ code: digits }}
+            components={{ strong: <strong /> }}
+          />
+        ),
+      },
+      ...pressSteps,
+    ];
   }
 
   if (device === "longfred" || device === "wifred") {

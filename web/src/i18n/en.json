@@ -85,6 +85,11 @@
     "locoAddress": "DCC address: {{address}}",
     "locoNoAddress": "No DCC address",
     "howToEnterTitle": "How to select locomotive “{{name}}” on the device",
+    "wifi": {
+      "ssid": "Network",
+      "password": "Password",
+      "openNetwork": "(open network — no password)"
+    },
     "stepper": {
       "device": "Device",
       "qr": "QR code",
@@ -157,6 +162,13 @@
       "pressKey": "Press key <strong>{{key}}</strong>",
       "locoListTitle": "Your locomotives",
       "locoListHint": "Add each locomotive from this list separately in the RailBOX Railroad Control app, using the correct DCC address."
+    },
+    "withrottleAdvanced": {
+      "wifiTitle": "Connect to Wi‑Fi with your app or physical throttle",
+      "wifiHint": "I cannot walk you through how to do this, because you chose a non-standard device.",
+      "pairingLead": "Select the “Pair with BigFred” locomotive at address 3 and enter the pairing code, or set that code as the device name in the device settings.",
+      "pairLoco": "Select locomotive <strong>Pair with BigFred</strong> at address <strong>3</strong> and enter the code with F0–F9:",
+      "orDeviceName": "Or in the device settings set the device name to <strong>{{code}}</strong>."
     },
     "devices": {
       "android": {
@@ -299,7 +311,13 @@
       "scanWebTitle": "Scan the code and open BigFred",
       "scanWebLead": "Open the camera or a QR scanner on the phone and point it at this code — it opens BigFred in the browser.",
       "qrAlt": "QR code",
-      "androidUrlMissing": "No Android app URL in the config (androidAppUrl). Ask the operator to fill it in /data/etc/bigfred/wizard/bigfred-wizard.json.",
+      "wifiTitle": "Join the Wi‑Fi network on your phone",
+      "wifiSteps": {
+        "1": "Select the network <strong>{{ssid}}</strong>",
+        "2": "Enter the password <strong>{{password}}</strong>",
+        "3": "Connect"
+      },
+      "wifiDone": "Done, I’m connected, let’s continue",
       "driveTitle": "How to drive in BigFred",
       "driveSteps": {
         "1": "Open the BigFred app or website on the phone.",

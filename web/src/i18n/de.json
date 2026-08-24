@@ -85,6 +85,11 @@
     "locoAddress": "DCC-Adresse: {{address}}",
     "locoNoAddress": "Keine DCC-Adresse",
     "howToEnterTitle": "So wählst du die Lok „{{name}}“ am Gerät",
+    "wifi": {
+      "ssid": "Netz",
+      "password": "Passwort",
+      "openNetwork": "(offenes Netz — kein Passwort)"
+    },
     "stepper": {
       "device": "Gerät",
       "qr": "QR-Code",
@@ -157,6 +162,13 @@
       "pressKey": "Drücke Taste <strong>{{key}}</strong>",
       "locoListTitle": "Deine Lokomotiven",
       "locoListHint": "Jede Lok aus der Liste musst du separat in der RailBOX Railroad Control App anlegen — mit der richtigen DCC-Adresse."
+    },
+    "withrottleAdvanced": {
+      "wifiTitle": "Verbinde dich mit dem WLAN über deine App oder den physischen Regler",
+      "wifiHint": "Ich kann dir hier nicht zeigen, wie das geht, weil du ein nicht standardmäßiges Gerät gewählt hast.",
+      "pairingLead": "Wähle die Lok „Pair with BigFred“ mit Adresse 3 und gib den Kopplungscode ein, oder setze diesen Code in den Geräteeinstellungen als Gerätenamen.",
+      "pairLoco": "Wähle die Lok <strong>Pair with BigFred</strong> mit Adresse <strong>3</strong> und gib den Code mit F0–F9 ein:",
+      "orDeviceName": "Oder setze in den Geräteeinstellungen den Gerätenamen auf <strong>{{code}}</strong>."
     },
     "devices": {
       "android": {
@@ -299,7 +311,13 @@
       "scanWebTitle": "Code scannen und BigFred öffnen",
       "scanWebLead": "Öffne die Kamera oder einen QR-Scanner und richte ihn auf diesen Code — er öffnet BigFred im Browser.",
       "qrAlt": "QR-Code",
-      "androidUrlMissing": "Keine Android-App-URL in der Konfiguration (androidAppUrl). Bitte den Operator /data/etc/bigfred/wizard/bigfred-wizard.json ergänzen lassen.",
+      "wifiTitle": "Melde dich auf dem Telefon im WLAN an",
+      "wifiSteps": {
+        "1": "Wähle das Netz <strong>{{ssid}}</strong>",
+        "2": "Gib das Passwort <strong>{{password}}</strong> ein",
+        "3": "Verbinden"
+      },
+      "wifiDone": "Fertig, ich bin verbunden, weiter geht’s",
       "driveTitle": "So fährst du in BigFred",
       "driveSteps": {
         "1": "Öffne die BigFred-App oder -Website auf dem Telefon.",
