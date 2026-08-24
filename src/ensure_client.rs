@@ -293,6 +293,10 @@ fn touch_for_reload(path: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Both tests mutate `BIGFRED_DATA_DIR`; keep them serial.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     #[test]
     fn secret_is_64_hex_chars() {
@@ -304,6 +308,7 @@ mod tests {
 
     #[test]
     fn ensure_writes_once_and_reads_back() {
+        let _guard = ENV_LOCK.lock().unwrap();
         let tmp = std::env::temp_dir().join(format!("wizard-test-{}", uuid::Uuid::new_v4()));
         std::env::set_var("BIGFRED_DATA_DIR", &tmp);
         let cfg = Config::default();
@@ -327,6 +332,7 @@ mod tests {
 
     #[test]
     fn sync_redirect_uris_preserves_share_session() {
+        let _guard = ENV_LOCK.lock().unwrap();
         let tmp = std::env::temp_dir().join(format!("wizard-test-{}", uuid::Uuid::new_v4()));
         std::env::set_var("BIGFRED_DATA_DIR", &tmp);
         let cfg = Config::default();
