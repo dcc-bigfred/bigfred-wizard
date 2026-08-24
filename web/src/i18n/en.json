@@ -85,6 +85,14 @@
     "locoAddress": "DCC address: {{address}}",
     "locoNoAddress": "No DCC address",
     "howToEnterTitle": "How to select locomotive “{{name}}” on the device",
+    "wifi": {
+      "ssid": "Network name",
+      "password": "Password",
+      "openNetwork": "(open network — no password)",
+      "qrLead": "Point your phone camera (Android or iPhone) at this code — the network will be added automatically.",
+      "qrAlt": "QR code to add the Wi‑Fi network",
+      "showManual": "I want to pick the network and type the password myself — show me the details"
+    },
     "stepper": {
       "device": "Device",
       "qr": "QR code",
@@ -157,6 +165,12 @@
       "pressKey": "Press key <strong>{{key}}</strong>",
       "locoListTitle": "Your locomotives",
       "locoListHint": "Add each locomotive from this list separately in the RailBOX Railroad Control app, using the correct DCC address."
+    },
+    "withrottleAdvanced": {
+      "wifiTitle": "Connect to Wi‑Fi with your app or physical throttle",
+      "wifiHint": "I cannot walk you through how to do this, because you chose a non-standard device.",
+      "pairLoco": "Select locomotive <strong>Pair with BigFred</strong> at address <strong>3</strong> and enter the code with F0–F9:",
+      "orDeviceName": "Or in the device settings set the device name to <strong>{{code}}</strong>."
     },
     "devices": {
       "android": {
@@ -299,7 +313,8 @@
       "scanWebTitle": "Scan the code and open BigFred",
       "scanWebLead": "Open the camera or a QR scanner on the phone and point it at this code — it opens BigFred in the browser.",
       "qrAlt": "QR code",
-      "androidUrlMissing": "No Android app URL in the config (androidAppUrl). Ask the operator to fill it in /data/etc/bigfred/wizard/bigfred-wizard.json.",
+      "wifiTitle": "Join the Wi‑Fi network on your phone",
+      "wifiDone": "Done, I’m connected, let’s continue",
       "driveTitle": "How to drive in BigFred",
       "driveSteps": {
         "1": "Open the BigFred app or website on the phone.",
@@ -313,10 +328,6 @@
       "openAnyLoco": "Open any locomotive (any address) with the arrow keys.",
       "powerOnHandset": "Turn the device on.",
       "openPairingLoco": "On the device, open the pairing locomotive.",
-      "openApp": "Open the {{app}} app.",
-      "connectBigFred": "Connect to the BigFred server on the club Wi‑Fi.",
-      "typeDeviceName": "Set the device name to: <strong>{{code}}</strong>",
-      "orPairingLoco": "Or select the “Pair with BigFred” locomotive and press these keys:",
       "pressWlanmausKey": "Press key <strong>{{key}}</strong> (same as {{f}}).",
       "pressF": "Press key <strong>{{f}}</strong>."
     },
@@ -503,6 +514,7 @@
     "wireless_unavailable": "Programming is unavailable. Ask the operator for help.",
     "wireless_timeout": "Programming did not answer in time.",
     "wifi_not_configured": "Wi‑Fi is not configured in the wizard. Ask the operator to fill in the settings.",
+    "stations_loading": "Waiting for the command-station list. Please retry in a moment.",
     "forbidden": "Not allowed to program the handset."
   }
 }

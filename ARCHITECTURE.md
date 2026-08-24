@@ -148,7 +148,7 @@ that is compiled into that binary.
 | **wireless_api** | REST/SSE face of wireless-programmer (`wp-proto` length-prefixed JSON) | Unix socket |
 | **handset_api** | Authenticated Wi‑Fi SSID/PSK + Z21 IPv4 for on-screen WlanMaus steps | DNS lookup |
 | **pin_api** | Verify participant PIN against BigFred; drop the minted JWT | HTTP to BigFred |
-| **qr** | SVG QR for `android` / `bigfred` / `railbox` store or public URLs | none |
+| **qr** | Public SVG QR for `android` / `bigfred` / `railbox` store or public URLs; organizer-only `GET /api/v1/wizard/wifi-qr.svg` (ZXing `WIFI:` payload, Bearer — PSK is never on the public `qr.svg`) | none |
 | **web SPA** | Fullscreen tiles, i18n (pl/en/de), device-specific steppers | fetch / EventSource |
 
 **Dependency direction:** `config` ← every module. `programming_api` and
@@ -344,7 +344,9 @@ it from defaults (`enabled: false`).
 
 `PublicConfig` exposes SSID and `wifiPskConfigured` (boolean), never the
 PSK. Organizer-only `GET /api/v1/wizard/handset-setup` returns the PSK
-for WlanMaus on-screen steps.
+for on-screen steps. Organizer-only `GET /api/v1/wizard/wifi-qr.svg`
+encodes the same SSID/PSK as a ZXing `WIFI:` QR (Android / iPhone
+camera join); the public `qr.svg` endpoint stays URL-only.
 
 ---
 

@@ -85,6 +85,14 @@
     "locoAddress": "Adres DCC: {{address}}",
     "locoNoAddress": "Bez adresu DCC",
     "howToEnterTitle": "Jak wybrać lokomotywę „{{name}}” na urządzeniu",
+    "wifi": {
+      "ssid": "Nazwa sieci",
+      "password": "Hasło",
+      "openNetwork": "(sieć otwarta — bez hasła)",
+      "qrLead": "Skieruj aparat telefonu (Android lub iPhone) na ten kod — sieć doda się sama.",
+      "qrAlt": "Kod QR do dodania sieci Wi‑Fi",
+      "showManual": "Chcę wybrać sieć i wpisać hasło ręcznie, podaj mi dane"
+    },
     "stepper": {
       "device": "Urządzenie",
       "qr": "Kod QR",
@@ -157,6 +165,12 @@
       "pressKey": "Wciśnij klawisz <strong>{{key}}</strong>",
       "locoListTitle": "Twoje lokomotywy",
       "locoListHint": "Każdą lokomotywę z listy musisz dodać osobno w aplikacji RailBOX Railroad Control, pamiętając o adresie DCC."
+    },
+    "withrottleAdvanced": {
+      "wifiTitle": "Połącz się do WiFi swoją aplikacją lub pilotem fizycznym",
+      "wifiHint": "Nie pomogę Ci tutaj jak to zrobić, ponieważ wybrałeś(aś) niestandardowe urządzenie.",
+      "pairLoco": "Wybierz lokomotywę <strong>Pair with BigFred</strong> o adresie <strong>3</strong> i wpisz kod klawiszami F0–F9:",
+      "orDeviceName": "Albo w konfiguracji urządzenia wpisz kod <strong>{{code}}</strong> w nazwie urządzenia."
     },
     "devices": {
       "android": {
@@ -299,7 +313,8 @@
       "scanWebTitle": "Zeskanuj kod i otwórz BigFred",
       "scanWebLead": "Otwórz aparat lub skaner QR na telefonie i skieruj go na ten kod — otworzy BigFred w przeglądarce.",
       "qrAlt": "Kod QR",
-      "androidUrlMissing": "Brak adresu aplikacji w konfiguracji (androidAppUrl). Poproś operatora o uzupełnienie /data/etc/bigfred/wizard/bigfred-wizard.json.",
+      "wifiTitle": "Zaloguj się do sieci WiFi na Twoim telefonie",
+      "wifiDone": "Gotowe, podłączyłem się, idziemy dalej",
       "driveTitle": "Jak jeździć w BigFred",
       "driveSteps": {
         "1": "Otwórz aplikację lub stronę BigFred na telefonie.",
@@ -313,10 +328,6 @@
       "openAnyLoco": "Otwórz dowolną lokomotywę (dowolny adres) strzałkami.",
       "powerOnHandset": "Włącz urządzenie.",
       "openPairingLoco": "Na urządzeniu otwórz lokomotywę do parowania.",
-      "openApp": "Otwórz aplikację {{app}}.",
-      "connectBigFred": "Połącz się z serwerem BigFred w sieci klubowej.",
-      "typeDeviceName": "W nazwie urządzenia wpisz kod: <strong>{{code}}</strong>",
-      "orPairingLoco": "Albo wybierz lokomotywę „Pair with BigFred” i wciśnij kolejne klawisze:",
       "pressWlanmausKey": "Wciśnij klawisz <strong>{{key}}</strong> (to samo co {{f}}).",
       "pressF": "Wciśnij klawisz <strong>{{f}}</strong>."
     },
@@ -503,6 +514,7 @@
     "wireless_unavailable": "Usługa programowania jest niedostępna. Poproś operatora o pomoc.",
     "wireless_timeout": "Usługa programowania nie odpowiedziała na czas.",
     "wifi_not_configured": "Sieć Wi‑Fi nie jest skonfigurowana w kreatorze. Poproś operatora o uzupełnienie ustawień.",
+    "stations_loading": "Czekam na listę centralek. Spróbuj ponownie za chwilę.",
     "forbidden": "Brak uprawnień do programowania pilota."
   }
 }
