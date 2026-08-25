@@ -185,13 +185,14 @@ export default function DriveFlowPage() {
       return ["accountAsk", "user", "pickRoster", ...z21, "programming", "askLoco"];
     }
     if (isWirelessProgramDevice(device)) {
+      const rosterStep = device === "longfred" ? [] : ["pickRoster"];
       return [
         "device",
         "user",
         "pin",
         "enterPairing",
         "scan",
-        "pickRoster",
+        ...rosterStep,
         "programming",
         "done",
       ];
@@ -779,31 +780,9 @@ export default function DriveFlowPage() {
     }
   }, [phase, runZ21Scan]);
 
-  const loadRosterAndContinue = async (picked: Candidate) => {
-    if (!user) return;
-    setCandidate(picked);
-    setBusy(true);
-    setError(null);
-    try {
-      const list = await api.vehicles(user.login);
-      setVehicles(
-        list.filter(
-          (v) =>
-            (v.ownerLogin != null && v.ownerLogin === user.login) ||
-            (v.ownerId != null && v.ownerId === user.id),
-        ),
-      );
-      setRosterIds([]);
-      setPhase("wpRoster");
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const startProgramming = async () => {
-    if (!device || !user || !candidate || !vehicles) return;
+  const startProgramming = async (picked: Candidate | null = candidate) => {
+    if (!device || !user || !picked) return;
+    if (device !== "longfred" && !vehicles) return;
     if (!config?.wifiSsid) {
       setError(new ApiError(400, "wifi_not_configured", t("drive.program.wifiMissing")));
       return;
@@ -815,12 +794,15 @@ export default function DriveFlowPage() {
 
     let wifredPairingCsId: number | null = null;
     try {
-      const roster = rosterFromVehicles(vehicles, rosterIds).map((r) => ({
-        address: r.address,
-        longAddress: r.longAddress,
-        direction: r.direction,
-        functions: r.functions,
-      }));
+      const roster =
+        device === "longfred"
+          ? []
+          : rosterFromVehicles(vehicles ?? [], rosterIds).map((r) => ({
+              address: r.address,
+              longAddress: r.longAddress,
+              direction: r.direction,
+              functions: r.functions,
+            }));
 
       let identity: string;
       if (device === "wifred") {
@@ -846,14 +828,14 @@ export default function DriveFlowPage() {
       }
 
       const result = await wirelessApi.program({
-        candidate: { driver: candidate.driver, key: candidate.key },
+        candidate: { driver: picked.driver, key: picked.key },
         identity,
         roster,
         bigfred:
           device === "longfred"
             ? { login: user.login, pin }
             : undefined,
-        rosterMode: device === "longfred" ? "static" : undefined,
+        rosterMode: device === "longfred" ? "auto" : undefined,
       });
       const terminal = await wirelessApi.watchJob(result.jobId, (frame) => {
         setJobFrame(frame);
@@ -873,6 +855,33 @@ export default function DriveFlowPage() {
       }
       setFailDetail(friendlyWirelessError(err, t));
       setPhase("wpFailed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const loadRosterAndContinue = async (picked: Candidate) => {
+    if (!user) return;
+    setCandidate(picked);
+    if (device === "longfred") {
+      await startProgramming(picked);
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const list = await api.vehicles(user.login);
+      setVehicles(
+        list.filter(
+          (v) =>
+            (v.ownerLogin != null && v.ownerLogin === user.login) ||
+            (v.ownerId != null && v.ownerId === user.id),
+        ),
+      );
+      setRosterIds([]);
+      setPhase("wpRoster");
+    } catch (err) {
+      setError(err);
     } finally {
       setBusy(false);
     }
