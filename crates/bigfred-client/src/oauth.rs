@@ -1,11 +1,4 @@
-//! Seeds the wizard's own OAuth client into BigFred's drop-in directory
-//! (`$DATA_DIR/etc/bigfred/oauth-clients/bigfred-wizard.json`). BigFred
-//! hot-reloads that directory, so a fresh hub needs no manual step.
-//!
-//! The generated `clientSecret` stays on disk (0640, group `bigfred`) and
-//! is read back by `oauth_proxy` — it is never sent to the browser.
-//! BigFred runs as user `bigfred`, so a root-only `0600` file would make
-//! the registry skip the drop-in and return `invalid_client`.
+//! OAuth confidential-client drop-in and authorization-code exchange.
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -13,7 +6,9 @@ use std::path::{Path, PathBuf};
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 
-use crate::config::{merge_builtin_redirect_uris, oauth_clients_dir, Config};
+use crate::config::BigFredConfig;
+use crate::error::{Error, Result};
+use crate::wire::TokenResponse;
 
 /// One drop-in registration, mirroring `cmd.OAuthClient` on the Go side.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,51 +30,31 @@ pub struct OAuthClientFile {
     pub share_session: bool,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum EnsureError {
-    #[error("io {path}: {source}")]
-    Io {
-        path: PathBuf,
-        #[source]
-        source: std::io::Error,
-    },
-    #[error("parse {path}: {source}")]
-    Parse {
-        path: PathBuf,
-        #[source]
-        source: serde_json::Error,
-    },
-    #[error("serialize {path}: {source}")]
-    Serialize {
-        path: PathBuf,
-        #[source]
-        source: serde_json::Error,
-    },
-}
-
-/// Path of the drop-in for `cfg.sso_client_id`.
-pub fn client_path(cfg: &Config) -> PathBuf {
-    oauth_clients_dir().join(format!("{}.json", cfg.sso_client_id))
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct UpstreamRequest<'a> {
+    grant_type: &'a str,
+    code: &'a str,
+    client_id: &'a str,
+    client_secret: &'a str,
+    redirect_uri: &'a str,
 }
 
 /// Creates the drop-in when missing. An existing file keeps its secret, but
-/// builtin redirect URIs from the wizard config are always merged in.
-/// Directory and file modes are re-asserted so BigFred (`bigfred`) can read.
-pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
-    let dir = oauth_clients_dir();
-    std::fs::create_dir_all(&dir).map_err(|source| EnsureError::Io {
+/// redirect URIs from `cfg` are always merged in. Directory and file modes
+/// are re-asserted so BigFred (`bigfred`) can read.
+pub fn ensure_dropin(cfg: &BigFredConfig) -> Result<PathBuf> {
+    let dir = &cfg.oauth_dropin_dir;
+    std::fs::create_dir_all(dir).map_err(|source| Error::Io {
         path: dir.clone(),
         source,
     })?;
-    harden_dropin_dir(&dir);
+    harden_dropin_dir(dir);
 
-    let path = client_path(cfg);
+    let path = cfg.oauth_client_path();
     if path.exists() {
         let changed = sync_redirect_uris(&path, cfg)?;
         harden_dropin_file(&path);
-        // Bump mtime only when we actually changed the file or its perms;
-        // an unconditional touch would spurious-wake BigFred's fsnotify on
-        // every call (and, before this fix, on every token exchange).
         if changed {
             touch_for_reload(&path);
         }
@@ -87,13 +62,11 @@ pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
         return Ok(path);
     }
 
-    let mut redirect_uris = cfg.redirect_uris.clone();
-    merge_builtin_redirect_uris(&mut redirect_uris);
     let file = OAuthClientFile {
         client_id: cfg.sso_client_id.clone(),
         client_secret: random_secret(),
-        display_name: "BigFred Wizard".to_string(),
-        redirect_uris,
+        display_name: cfg.oauth_display_name.clone(),
+        redirect_uris: cfg.redirect_uris.clone(),
         cors_enabled: false,
         cors_origins: Vec::new(),
         enabled: true,
@@ -101,7 +74,7 @@ pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
     };
     write_private(
         &path,
-        &serde_json::to_vec_pretty(&file).map_err(|source| EnsureError::Serialize {
+        &serde_json::to_vec_pretty(&file).map_err(|source| Error::Serialize {
             path: path.clone(),
             source,
         })?,
@@ -111,15 +84,82 @@ pub fn ensure(cfg: &Config) -> Result<PathBuf, EnsureError> {
     Ok(path)
 }
 
-/// Merges config + builtin redirect URIs into an existing drop-in without
-/// rotating the client secret. Returns `true` if the file was rewritten.
-fn sync_redirect_uris(path: &Path, cfg: &Config) -> Result<bool, EnsureError> {
-    let raw = std::fs::read(path).map_err(|source| EnsureError::Io {
+/// Reads the client secret back for the token exchange.
+pub fn load_secret(cfg: &BigFredConfig) -> Result<Option<String>> {
+    let path = cfg.oauth_client_path();
+    let raw = match std::fs::read(&path) {
+        Ok(raw) => raw,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(source) => return Err(Error::Io { path, source }),
+    };
+    let file: OAuthClientFile =
+        serde_json::from_slice(&raw).map_err(|source| Error::Parse { path, source })?;
+    Ok(Some(file.client_secret))
+}
+
+/// Adds the confidential `clientSecret` and exchanges `code` with BigFred.
+pub async fn exchange_token(
+    http: &reqwest::Client,
+    cfg: &BigFredConfig,
+    code: &str,
+    redirect_uri: &str,
+) -> Result<TokenResponse> {
+    let secret = match load_secret(cfg) {
+        Ok(Some(secret)) => secret,
+        Ok(None) => {
+            tracing::info!("oauth drop-in missing on token exchange — seeding");
+            ensure_dropin(cfg).map_err(|err| Error::OauthClientEnsureFailed(err.to_string()))?;
+            load_secret(cfg)
+                .map_err(|err| Error::OauthClientUnreadable(err.to_string()))?
+                .ok_or(Error::OauthClientMissing)?
+        }
+        Err(err) => {
+            tracing::warn!(error = %err, "oauth drop-in unreadable — re-seeding");
+            ensure_dropin(cfg).map_err(|err| Error::OauthClientEnsureFailed(err.to_string()))?;
+            load_secret(cfg)
+                .map_err(|err| Error::OauthClientUnreadable(err.to_string()))?
+                .ok_or(Error::OauthClientMissing)?
+        }
+    };
+
+    let url = format!("{}/api/v1/auth/oauth/token", cfg.api_base);
+    let res = http
+        .post(&url)
+        .json(&UpstreamRequest {
+            grant_type: "authorization_code",
+            code,
+            client_id: &cfg.sso_client_id,
+            client_secret: &secret,
+            redirect_uri,
+        })
+        .send()
+        .await
+        .map_err(|err| Error::OauthUnreachable(err.to_string()))?;
+
+    let status = res.status();
+    let payload = res.bytes().await.unwrap_or_default();
+    if !status.is_success() {
+        let code = serde_json::from_slice::<serde_json::Value>(&payload)
+            .ok()
+            .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(str::to_string))
+            .unwrap_or_else(|| "oauth_exchange_failed".to_string());
+        return Err(Error::BadStatus {
+            status: status.as_u16(),
+            code,
+            detail: None,
+        });
+    }
+
+    serde_json::from_slice(&payload).map_err(|err| Error::OauthBadResponse(err.to_string()))
+}
+
+fn sync_redirect_uris(path: &Path, cfg: &BigFredConfig) -> Result<bool> {
+    let raw = std::fs::read(path).map_err(|source| Error::Io {
         path: path.to_path_buf(),
         source,
     })?;
     let mut file: OAuthClientFile =
-        serde_json::from_slice(&raw).map_err(|source| EnsureError::Parse {
+        serde_json::from_slice(&raw).map_err(|source| Error::Parse {
             path: path.to_path_buf(),
             source,
         })?;
@@ -134,35 +174,21 @@ fn sync_redirect_uris(path: &Path, cfg: &Config) -> Result<bool, EnsureError> {
             file.redirect_uris.push(trimmed.to_string());
         }
     }
-    merge_builtin_redirect_uris(&mut file.redirect_uris);
     if file.redirect_uris == before {
         return Ok(false);
     }
 
-    let mut data = serde_json::to_vec_pretty(&file).map_err(|source| EnsureError::Serialize {
+    let mut data = serde_json::to_vec_pretty(&file).map_err(|source| Error::Serialize {
         path: path.to_path_buf(),
         source,
     })?;
     data.push(b'\n');
-    std::fs::write(path, data).map_err(|source| EnsureError::Io {
+    std::fs::write(path, data).map_err(|source| Error::Io {
         path: path.to_path_buf(),
         source,
     })?;
     tracing::info!(path = %path.display(), "merged redirect URIs into oauth client drop-in");
     Ok(true)
-}
-
-/// Reads the client secret back for the token exchange.
-pub fn load_secret(cfg: &Config) -> Result<Option<String>, EnsureError> {
-    let path = client_path(cfg);
-    let raw = match std::fs::read(&path) {
-        Ok(raw) => raw,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(source) => return Err(EnsureError::Io { path, source }),
-    };
-    let file: OAuthClientFile =
-        serde_json::from_slice(&raw).map_err(|source| EnsureError::Parse { path, source })?;
-    Ok(Some(file.client_secret))
 }
 
 fn random_secret() -> String {
@@ -171,8 +197,8 @@ fn random_secret() -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn write_private(path: &Path, data: &[u8]) -> Result<(), EnsureError> {
-    let io = |source| EnsureError::Io {
+fn write_private(path: &Path, data: &[u8]) -> Result<()> {
+    let io = |source| Error::Io {
         path: path.to_path_buf(),
         source,
     };
@@ -181,7 +207,6 @@ fn write_private(path: &Path, data: &[u8]) -> Result<(), EnsureError> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
-        // Temporary until harden_dropin_file sets 0640 + group bigfred.
         opts.mode(0o640);
     }
     let mut f = opts.open(path).map_err(io)?;
@@ -191,7 +216,6 @@ fn write_private(path: &Path, data: &[u8]) -> Result<(), EnsureError> {
     Ok(())
 }
 
-/// `0750 root:bigfred` so loco-server can traverse and list drop-ins.
 fn harden_dropin_dir(dir: &Path) {
     #[cfg(unix)]
     {
@@ -225,7 +249,6 @@ fn harden_dropin_dir(dir: &Path) {
     }
 }
 
-/// `0640 root:bigfred` — BigFred must read `clientSecret` at reload time.
 fn harden_dropin_file(path: &Path) {
     #[cfg(unix)]
     {
@@ -247,9 +270,6 @@ fn harden_dropin_file(path: &Path) {
     }
 }
 
-/// Cached GID of the `bigfred` group. Parsed once from `/etc/group` and
-/// memoised in a `OnceLock`; malformed lines are skipped with a `warn!`
-/// rather than aborting the whole lookup.
 fn bigfred_gid() -> Option<u32> {
     use std::sync::OnceLock;
     static GID: OnceLock<Option<u32>> = OnceLock::new();
@@ -293,10 +313,7 @@ fn touch_for_reload(path: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    /// Both tests mutate `BIGFRED_DATA_DIR`; keep them serial.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
+    use crate::config::test_config;
 
     #[test]
     fn secret_is_64_hex_chars() {
@@ -308,14 +325,12 @@ mod tests {
 
     #[test]
     fn ensure_writes_once_and_reads_back() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let tmp = std::env::temp_dir().join(format!("wizard-test-{}", uuid::Uuid::new_v4()));
-        std::env::set_var("BIGFRED_DATA_DIR", &tmp);
-        let cfg = Config::default();
+        let tmp = std::env::temp_dir().join(format!("bf-oauth-{}", uuid::Uuid::new_v4()));
+        let cfg = test_config(tmp.join("oauth-clients"));
 
-        let path = ensure(&cfg).expect("seed");
+        let path = ensure_dropin(&cfg).expect("seed");
         let first = load_secret(&cfg).expect("read").expect("some");
-        ensure(&cfg).expect("idempotent");
+        ensure_dropin(&cfg).expect("idempotent");
         let second = load_secret(&cfg).expect("read").expect("some");
 
         assert_eq!(first, second);
@@ -326,17 +341,14 @@ mod tests {
             let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
             assert_eq!(mode, 0o640);
         }
-        std::env::remove_var("BIGFRED_DATA_DIR");
         let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]
     fn sync_redirect_uris_preserves_share_session() {
-        let _guard = ENV_LOCK.lock().unwrap();
-        let tmp = std::env::temp_dir().join(format!("wizard-test-{}", uuid::Uuid::new_v4()));
-        std::env::set_var("BIGFRED_DATA_DIR", &tmp);
-        let cfg = Config::default();
-        let path = client_path(&cfg);
+        let tmp = std::env::temp_dir().join(format!("bf-oauth-{}", uuid::Uuid::new_v4()));
+        let cfg = test_config(tmp.join("oauth-clients"));
+        let path = cfg.oauth_client_path();
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         let file = OAuthClientFile {
             client_id: cfg.sso_client_id.clone(),
@@ -350,7 +362,7 @@ mod tests {
         };
         std::fs::write(&path, serde_json::to_vec_pretty(&file).unwrap()).unwrap();
 
-        ensure(&cfg).expect("ensure");
+        ensure_dropin(&cfg).expect("ensure");
         let raw = std::fs::read(&path).unwrap();
         let parsed: OAuthClientFile = serde_json::from_slice(&raw).unwrap();
         assert!(
@@ -362,7 +374,6 @@ mod tests {
             .iter()
             .any(|u| u == "http://example.test/cb"));
 
-        std::env::remove_var("BIGFRED_DATA_DIR");
         let _ = std::fs::remove_dir_all(&tmp);
     }
 }

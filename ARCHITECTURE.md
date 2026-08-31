@@ -73,10 +73,10 @@ flowchart TB
         Embed["rust-embed web/dist"]
         WizardAPI["/api/v1/wizard/*"]
         Proxy["HTTP reverse proxy"]
-        Dcc["DccBusClient"]
+        Dcc["bigfred_client DccBus"]
         Loco["loco_programming Hub"]
         Wp["WirelessClient"]
-        Oauth["oauth_proxy + drop-in secret"]
+        Oauth["bigfred oauth wrapper"]
         Axum --> Embed
         Axum --> WizardAPI
         Axum --> Proxy
@@ -109,7 +109,7 @@ spawn the inotify reloader, bind `:8091`, serve until SIGINT/SIGTERM.
 
 ```
 bigfred-wizard/
-├── Cargo.toml                 # workspace: binary + crates/z21-lan
+├── Cargo.toml                 # workspace: binary + crates/z21-lan + crates/bigfred-client
 ├── Makefile                   # web-build, host, musl, test, dev-*
 ├── README.md                  # end-user description
 ├── ARCHITECTURE.md            # this file
@@ -119,13 +119,11 @@ bigfred-wizard/
 ├── docs/screenshot-main.png
 ├── .github/workflows/{ci,release}.yml
 ├── crates/z21-lan/            # Z21 LAN UDP CV / POM packets
+├── crates/bigfred-client/     # OAuth drop-in, HTTP proxy, dcc-bus WS (no axum)
 ├── src/                       # Axum daemon
 │   ├── main.rs                # listen, router, SPA fallback
 │   ├── config.rs / config_watch.rs
-│   ├── ensure_client.rs       # OAuth drop-in
-│   ├── oauth_proxy.rs
-│   ├── bigfred_proxy.rs
-│   ├── dccbus_client.rs       # WS transport (programming + drive)
+│   ├── bigfred/               # axum wrappers: oauth token + reverse proxy
 │   ├── loco_programming/      # LocoProgrammer trait + dcc-bus / Z21 backends
 │   ├── programming_api.rs     # HTTP face of CV/address/F2 pulse
 │   ├── wireless_api.rs
@@ -139,7 +137,7 @@ bigfred-wizard/
     └── scripts/check-offline-bundle.mjs
 ```
 
-One binary crate plus `z21-lan`, with an npm frontend compiled into that binary.
+One binary crate plus `z21-lan` and `bigfred-client`, with an npm frontend compiled into that binary.
 
 ---
 
@@ -147,14 +145,12 @@ One binary crate plus `z21-lan`, with an npm frontend compiled into that binary.
 
 | Module | Role | I/O? |
 |---|---|---|
-| **config** | `bigfred-wizard.json` + `.example` seed, `PublicConfig` (no PSK / no OAuth secret), builtin redirect URIs | filesystem |
+| **config** | `bigfred-wizard.json` + `.example` seed, `PublicConfig` (no PSK / no OAuth secret), builtin redirect URIs, `BigFredConfig` snapshot | filesystem |
 | **config_watch** | inotify on the config directory, 300 ms debounce, ignore `.example` / editor junk | inotify thread |
-| **ensure_client** | Seeds `$DATA_DIR/etc/bigfred/oauth-clients/<clientId>.json` (0640, group `bigfred`), merges builtin redirect URIs, never overwrites an existing secret | filesystem |
-| **oauth_proxy** | `POST /api/v1/wizard/oauth/token` — SPA sends the auth code; daemon adds `clientSecret` and exchanges with BigFred | HTTP to BigFred |
-| **bigfred_proxy** | Same-origin reverse proxy for `/api/v1/*` except `/wizard/*`. Forwards `authorization`, `content-type`, `accept`, `X-BigFred-Impersonate-As`. Rejects WebSocket upgrades. Body cap 2 MiB | HTTP to BigFred |
-| **dccbus_client** | Two long-lived WS sockets to BigFred dcc-bus (programming + impersonated drive), keepalive 2 s, exponential reconnect | WebSocket |
+| **bigfred-client** | OAuth drop-in + token exchange, HTTP forward, dcc-bus WS (programming + drive). Owns wire types (`Ack`, `CvEntry`, `Status`) | HTTP / WS / fs |
+| **bigfred/** | Axum wrappers: `oauth::token`, `proxy::proxy`; `From<bigfred_client::Error> for ApiError` | via bigfred-client |
 | **loco_programming** | `LocoProgrammer` trait; `DccBusProgrammer` and `Z21Programmer`; `Hub::select` from live `locoProgramming.mode` | WS or UDP |
-| **programming_api** | HTTP face of CV/address/F2 pulse; SPA never speaks WS | via loco_programming / dccbus_client |
+| **programming_api** | HTTP face of CV/address/F2 pulse; SPA never speaks WS | via loco_programming / bigfred-client |
 | **wireless_api** | REST/SSE face of wireless-programmer (`wp-proto` length-prefixed JSON) | Unix socket |
 | **handset_api** | Authenticated Wi‑Fi SSID/PSK + Z21 IPv4 for on-screen WlanMaus steps | DNS lookup |
 | **pin_api** | Verify participant PIN against BigFred; drop the minted JWT | HTTP to BigFred |
@@ -162,7 +158,8 @@ One binary crate plus `z21-lan`, with an npm frontend compiled into that binary.
 | **web SPA** | Fullscreen tiles, i18n (pl/en/de), device-specific steppers | fetch / EventSource |
 
 **Dependency direction:** `config` ← every module. `programming_api`
-selects a `LocoProgrammer` per request. `pin_api` shares bearer
+selects a `LocoProgrammer` per request. `src/bigfred` maps
+`bigfred_client::Error` onto `ApiError`. `pin_api` shares bearer
 extraction. `wireless_api` depends on `wp-proto` only. Direct Z21 CV
 talks through `z21-lan`. The SPA depends on the daemon’s HTTP surface,
 not on Rust types (hand-written TypeScript DTOs in
@@ -177,7 +174,7 @@ flowchart TD
     Req["HTTP request :8091"] --> H{"path?"}
     H -->|"/healthz"| OK["200 ok"]
     H -->|"/api/v1/wizard/*"| W["wizard handlers"]
-    H -->|"/api/v1/*"| P["bigfred_proxy"]
+    H -->|"/api/v1/*"| P["bigfred::proxy"]
     H -->|"GET/HEAD other"| SPA["embedded file or index.html"]
     H -->|"other method"| NA["405"]
 ```
@@ -411,8 +408,8 @@ builds feed hub OS.
 ## 12. Security model
 
 - Confidential OAuth client: secret stays on disk (0640, group
-  `bigfred`) and is used only by `oauth_proxy`. The browser sees the
-  authorization code, never the secret.
+  `bigfred`) and is used only by `bigfred-client` during token exchange.
+  The browser sees the authorization code, never the secret.
 - Redirect URIs are an exact-match allowlist plus builtins. Token
   exchange rejects anything else.
 - Proxy is a denylist of hop-by-hop / cookie / host headers: only

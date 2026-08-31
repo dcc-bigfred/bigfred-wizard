@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use serde_json::json;
 
-use crate::dccbus_client::DccBusClient;
+use bigfred_client::DccBusClient;
+
 use crate::error::ApiError;
 
 use super::{Ack, CvEntry, LocoProgrammer, ProgrammingMode, Status};
@@ -52,7 +53,7 @@ impl LocoProgrammer for DccBusProgrammer {
     }
 
     async fn ensure_connected(&self, token: &str) -> Result<Status, ApiError> {
-        self.inner.ensure_connected(token).await
+        Ok(self.inner.ensure_connected(token).await?)
     }
 
     async fn read_cvs(
@@ -62,13 +63,14 @@ impl LocoProgrammer for DccBusProgrammer {
         cvs: &[u16],
         mode: ProgrammingMode,
     ) -> Result<Ack, ApiError> {
-        self.inner
+        Ok(self
+            .inner
             .request(
                 token,
                 FRAME_CV_READ,
                 json!({ "address": address, "cvs": cvs, "mode": mode.as_wire() }),
             )
-            .await
+            .await?)
     }
 
     async fn write_cvs(
@@ -78,13 +80,14 @@ impl LocoProgrammer for DccBusProgrammer {
         cvs: &[CvEntry],
         mode: ProgrammingMode,
     ) -> Result<Ack, ApiError> {
-        self.inner
+        Ok(self
+            .inner
             .request(
                 token,
                 FRAME_CV_WRITE,
                 json!({ "address": address, "cvs": cvs, "mode": mode.as_wire() }),
             )
-            .await
+            .await?)
     }
 
     async fn addr_get(
@@ -93,13 +96,14 @@ impl LocoProgrammer for DccBusProgrammer {
         address: u16,
         mode: ProgrammingMode,
     ) -> Result<Ack, ApiError> {
-        self.inner
+        Ok(self
+            .inner
             .request(
                 token,
                 FRAME_ADDR_GET,
                 json!({ "address": address, "mode": mode.as_wire() }),
             )
-            .await
+            .await?)
     }
 
     async fn addr_set(
@@ -109,7 +113,8 @@ impl LocoProgrammer for DccBusProgrammer {
         mode: ProgrammingMode,
         verify: bool,
     ) -> Result<Ack, ApiError> {
-        self.inner
+        Ok(self
+            .inner
             .request(
                 token,
                 FRAME_ADDR_SET,
@@ -119,6 +124,6 @@ impl LocoProgrammer for DccBusProgrammer {
                     "verify": verify,
                 }),
             )
-            .await
+            .await?)
     }
 }

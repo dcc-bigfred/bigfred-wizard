@@ -12,8 +12,9 @@ use std::sync::Arc;
 
 use tokio::sync::RwLock;
 
+use bigfred_client::DccBusClient;
+
 use crate::config::{Config, LocoProgrammingConfig};
-use crate::dccbus_client::DccBusClient;
 use crate::error::ApiError;
 
 pub use dcc_bus::DccBusProgrammer;
@@ -175,10 +176,12 @@ mod tests {
     use crate::config::{Config, LocoProgrammingConfig, LocoProgrammingMode};
 
     fn hub() -> Hub {
-        let cfg = Arc::new(RwLock::new(Config::default()));
+        let cfg = Config::default();
+        let bf = Arc::new(RwLock::new(cfg.bigfred_view()));
+        let wizard_cfg = Arc::new(RwLock::new(cfg));
         let http = reqwest::Client::new();
-        let dcc = Arc::new(DccBusClient::new(Arc::clone(&cfg), http));
-        Hub::new(dcc, cfg)
+        let dcc = Arc::new(DccBusClient::new(bf, http));
+        Hub::new(dcc, wizard_cfg)
     }
 
     #[test]
