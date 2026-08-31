@@ -7,150 +7,26 @@ use std::time::Duration;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::config::Config;
-use crate::dccbus_client::{Ack, CvEntry, Status};
 use crate::error::ApiError;
+
+use super::{Ack, CvEntry, LocoProgrammer, ProgrammingMode, Status};
 
 const SETTLE: Duration = Duration::from_millis(300);
 const ADDR_CVS: [u16; 4] = [1, 17, 18, 29];
 
-pub struct Z21DirectClient {
+pub struct Z21Programmer {
     cfg: Arc<RwLock<Config>>,
     inner: Mutex<Option<z21_lan::Z21Client>>,
     status: std::sync::Mutex<Status>,
 }
 
-impl Z21DirectClient {
+impl Z21Programmer {
     pub fn new(cfg: Arc<RwLock<Config>>) -> Self {
         Self {
             cfg,
             inner: Mutex::new(None),
             status: std::sync::Mutex::new(Status::default()),
         }
-    }
-
-    pub fn status(&self) -> Status {
-        self.status.lock().map(|g| g.clone()).unwrap_or_default()
-    }
-
-    pub async fn ensure_connected(&self) -> Result<Status, ApiError> {
-        let _ = self.ensure_inner().await?;
-        Ok(self.status())
-    }
-
-    pub async fn read_cvs(
-        &self,
-        address: u16,
-        cvs: &[u16],
-        mode: Option<&str>,
-    ) -> Result<Ack, ApiError> {
-        let guard = self.ensure_inner().await?;
-        let client = guard
-            .as_ref()
-            .ok_or_else(|| ApiError::unavailable("z21_unreachable"))?;
-        let pom = is_pom(mode);
-        let mut out = Vec::with_capacity(cvs.len());
-        for (i, cv) in cvs.iter().copied().enumerate() {
-            if i > 0 {
-                tokio::time::sleep(SETTLE).await;
-            }
-            let value = if pom {
-                client.read_cv_pom(address, cv).await.map_err(map_cv_err)?
-            } else {
-                client.read_cv(cv).await.map_err(map_cv_err)?
-            };
-            out.push(CvEntry { cv, value });
-        }
-        Ok(Ack {
-            ok: true,
-            cvs: Some(out),
-            ..Ack::default()
-        })
-    }
-
-    pub async fn write_cvs(
-        &self,
-        address: u16,
-        cvs: &[CvEntry],
-        mode: Option<&str>,
-    ) -> Result<Ack, ApiError> {
-        let guard = self.ensure_inner().await?;
-        let client = guard
-            .as_ref()
-            .ok_or_else(|| ApiError::unavailable("z21_unreachable"))?;
-        let pom = is_pom(mode);
-        for (i, entry) in cvs.iter().enumerate() {
-            if i > 0 {
-                tokio::time::sleep(SETTLE).await;
-            }
-            if pom {
-                client
-                    .write_cv_pom(address, entry.cv, entry.value)
-                    .await
-                    .map_err(map_cv_err)?;
-            } else {
-                client
-                    .write_cv(entry.cv, entry.value)
-                    .await
-                    .map_err(map_cv_err)?;
-            }
-        }
-        Ok(Ack {
-            ok: true,
-            cvs: Some(cvs.to_vec()),
-            ..Ack::default()
-        })
-    }
-
-    pub async fn addr_get(&self, address: u16, mode: Option<&str>) -> Result<Ack, ApiError> {
-        let read = self.read_cvs(address, &ADDR_CVS, mode).await?;
-        let cvs = read.cvs.unwrap_or_default();
-        let mut values = [0u8; 30];
-        for e in &cvs {
-            if (e.cv as usize) < values.len() {
-                values[e.cv as usize] = e.value;
-            }
-        }
-        let (loco_address, long_address) =
-            address_from_cvs(values[1], values[17], values[18], values[29])?;
-        Ok(Ack {
-            ok: true,
-            cvs: Some(cvs),
-            loco_address: Some(loco_address),
-            long_address: Some(long_address),
-            ..Ack::default()
-        })
-    }
-
-    pub async fn addr_set(
-        &self,
-        address: u16,
-        mode: Option<&str>,
-        verify: bool,
-    ) -> Result<Ack, ApiError> {
-        let cv29 = self.read_cvs(address, &[29], mode).await?;
-        let current = cv29
-            .cvs
-            .as_ref()
-            .and_then(|c| c.first())
-            .map(|e| e.value)
-            .ok_or_else(|| ApiError::unavailable("programming_failed"))?;
-        let (writes, long) = address_cv_writes(address, current)?;
-        self.write_cvs(address, &writes, mode).await?;
-        if verify {
-            let got = self.addr_get(address, mode).await?;
-            if got.loco_address != Some(address) {
-                return Err(
-                    ApiError::unavailable("programming_failed").with_detail("verify mismatch")
-                );
-            }
-        }
-        Ok(Ack {
-            ok: true,
-            cvs: Some(writes),
-            loco_address: Some(address),
-            long_address: Some(long),
-            ..Ack::default()
-        })
     }
 
     async fn ensure_inner(
@@ -185,8 +61,143 @@ impl Z21DirectClient {
     }
 }
 
-fn is_pom(mode: Option<&str>) -> bool {
-    mode.map(str::trim) == Some("pom")
+impl LocoProgrammer for Z21Programmer {
+    fn status(&self) -> Status {
+        self.status.lock().map(|g| g.clone()).unwrap_or_default()
+    }
+
+    async fn snapshot(&self, _token: Option<&str>) -> Status {
+        self.status()
+    }
+
+    async fn ensure_connected(&self, _token: &str) -> Result<Status, ApiError> {
+        let _ = self.ensure_inner().await?;
+        Ok(self.status())
+    }
+
+    async fn read_cvs(
+        &self,
+        _token: &str,
+        address: u16,
+        cvs: &[u16],
+        mode: ProgrammingMode,
+    ) -> Result<Ack, ApiError> {
+        let guard = self.ensure_inner().await?;
+        let client = guard
+            .as_ref()
+            .ok_or_else(|| ApiError::unavailable("z21_unreachable"))?;
+        let pom = mode.is_pom();
+        let mut out = Vec::with_capacity(cvs.len());
+        for (i, cv) in cvs.iter().copied().enumerate() {
+            if i > 0 {
+                tokio::time::sleep(SETTLE).await;
+            }
+            let value = if pom {
+                client.read_cv_pom(address, cv).await.map_err(map_cv_err)?
+            } else {
+                client.read_cv(cv).await.map_err(map_cv_err)?
+            };
+            out.push(CvEntry { cv, value });
+        }
+        Ok(Ack {
+            ok: true,
+            cvs: Some(out),
+            ..Ack::default()
+        })
+    }
+
+    async fn write_cvs(
+        &self,
+        _token: &str,
+        address: u16,
+        cvs: &[CvEntry],
+        mode: ProgrammingMode,
+    ) -> Result<Ack, ApiError> {
+        let guard = self.ensure_inner().await?;
+        let client = guard
+            .as_ref()
+            .ok_or_else(|| ApiError::unavailable("z21_unreachable"))?;
+        let pom = mode.is_pom();
+        for (i, entry) in cvs.iter().enumerate() {
+            if i > 0 {
+                tokio::time::sleep(SETTLE).await;
+            }
+            if pom {
+                client
+                    .write_cv_pom(address, entry.cv, entry.value)
+                    .await
+                    .map_err(map_cv_err)?;
+            } else {
+                client
+                    .write_cv(entry.cv, entry.value)
+                    .await
+                    .map_err(map_cv_err)?;
+            }
+        }
+        Ok(Ack {
+            ok: true,
+            cvs: Some(cvs.to_vec()),
+            ..Ack::default()
+        })
+    }
+
+    async fn addr_get(
+        &self,
+        token: &str,
+        address: u16,
+        mode: ProgrammingMode,
+    ) -> Result<Ack, ApiError> {
+        let read = self.read_cvs(token, address, &ADDR_CVS, mode).await?;
+        let cvs = read.cvs.unwrap_or_default();
+        let mut values = [0u8; 30];
+        for e in &cvs {
+            if (e.cv as usize) < values.len() {
+                values[e.cv as usize] = e.value;
+            }
+        }
+        let (loco_address, long_address) =
+            address_from_cvs(values[1], values[17], values[18], values[29])?;
+        Ok(Ack {
+            ok: true,
+            cvs: Some(cvs),
+            loco_address: Some(loco_address),
+            long_address: Some(long_address),
+            ..Ack::default()
+        })
+    }
+
+    async fn addr_set(
+        &self,
+        token: &str,
+        address: u16,
+        mode: ProgrammingMode,
+        verify: bool,
+    ) -> Result<Ack, ApiError> {
+        let cv29 = self.read_cvs(token, address, &[29], mode).await?;
+        let current = cv29
+            .cvs
+            .as_ref()
+            .and_then(|c| c.first())
+            .map(|e| e.value)
+            .ok_or_else(|| ApiError::unavailable("programming_failed"))?;
+        let (writes, long) = address_cv_writes(address, current)?;
+        self.write_cvs(token, address, &writes, mode).await?;
+        if verify {
+            let got = self.addr_get(token, address, mode).await?;
+            if got.loco_address != Some(address) {
+                return Err(
+                    ApiError::unavailable("programming_failed").with_detail("verify mismatch")
+                );
+            }
+        }
+        Ok(Ack {
+            ok: true,
+            cvs: Some(writes),
+            loco_address: Some(address),
+            long_address: Some(long),
+            ..Ack::default()
+        })
+    }
 }
 
 fn map_cv_err(err: z21_lan::CvError) -> ApiError {

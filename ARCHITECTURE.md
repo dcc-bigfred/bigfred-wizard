@@ -23,9 +23,12 @@ This document is the canonical architecture reference. The
 
 ## 1. Assumptions
 
-1. **Kiosk, not a command station.** The wizard never talks to the rails
-   itself. BigFred owns layouts, roster, SSO, remotes, and the dcc-bus
-   daemon. wireless-programmer owns Soft-AP / Z21-dispatch programming of
+1. **Kiosk, not a command station.** By default the wizard never talks
+   to the rails itself: BigFred owns layouts, roster, SSO, remotes, and
+   the dcc-bus daemon. `locoProgramming.mode: direct` is the exception —
+   CV / address frames then go UDP to a configured Z21 / RailBOX
+   (`crates/z21-lan`). F2 / ops-track pulses still use dcc-bus.
+   wireless-programmer owns Soft-AP / Z21-dispatch programming of
    physical handsets.
 2. **Loopback HTTP only.** `bigfredUrl` must be loopback `http://`. This
    binary has **no TLS** (`reqwest` without rustls/native-tls): the
@@ -71,21 +74,26 @@ flowchart TB
         WizardAPI["/api/v1/wizard/*"]
         Proxy["HTTP reverse proxy"]
         Dcc["DccBusClient"]
+        Loco["loco_programming Hub"]
         Wp["WirelessClient"]
         Oauth["oauth_proxy + drop-in secret"]
         Axum --> Embed
         Axum --> WizardAPI
         Axum --> Proxy
         WizardAPI --> Oauth
+        WizardAPI --> Loco
         WizardAPI --> Dcc
         WizardAPI --> Wp
     end
     BF["BigFred :8080"]
+    Z21["Z21 / RailBOX UDP"]
     Sock["Unix socket wireless-programmer.sock"]
     Dropin["oauth-clients/bigfred-wizard.json"]
     SPA -->|"same origin"| Axum
     Proxy -->|"HTTP /api/v1/*"| BF
     Oauth -->|"token exchange"| BF
+    Loco -->|"dcc-bus CV frames"| Dcc
+    Loco -->|"mode direct"| Z21
     Dcc -->|"WS programming + drive"| BF
     Wp --> Sock
     Oauth -.-> Dropin
@@ -101,7 +109,7 @@ spawn the inotify reloader, bind `:8091`, serve until SIGINT/SIGTERM.
 
 ```
 bigfred-wizard/
-├── Cargo.toml                 # single binary crate
+├── Cargo.toml                 # workspace: binary + crates/z21-lan
 ├── Makefile                   # web-build, host, musl, test, dev-*
 ├── README.md                  # end-user description
 ├── ARCHITECTURE.md            # this file
@@ -110,14 +118,16 @@ bigfred-wizard/
 ├── dev-config.json.example
 ├── docs/screenshot-main.png
 ├── .github/workflows/{ci,release}.yml
+├── crates/z21-lan/            # Z21 LAN UDP CV / POM packets
 ├── src/                       # Axum daemon
 │   ├── main.rs                # listen, router, SPA fallback
 │   ├── config.rs / config_watch.rs
 │   ├── ensure_client.rs       # OAuth drop-in
 │   ├── oauth_proxy.rs
 │   ├── bigfred_proxy.rs
-│   ├── dccbus_client.rs
-│   ├── programming_api.rs
+│   ├── dccbus_client.rs       # WS transport (programming + drive)
+│   ├── loco_programming/      # LocoProgrammer trait + dcc-bus / Z21 backends
+│   ├── programming_api.rs     # HTTP face of CV/address/F2 pulse
 │   ├── wireless_api.rs
 │   ├── handset_api.rs / pin_api.rs / qr.rs
 │   └── error.rs
@@ -129,8 +139,7 @@ bigfred-wizard/
     └── scripts/check-offline-bundle.mjs
 ```
 
-Not a Cargo workspace of many crates: one binary plus an npm frontend
-that is compiled into that binary.
+One binary crate plus `z21-lan`, with an npm frontend compiled into that binary.
 
 ---
 
@@ -144,17 +153,20 @@ that is compiled into that binary.
 | **oauth_proxy** | `POST /api/v1/wizard/oauth/token` — SPA sends the auth code; daemon adds `clientSecret` and exchanges with BigFred | HTTP to BigFred |
 | **bigfred_proxy** | Same-origin reverse proxy for `/api/v1/*` except `/wizard/*`. Forwards `authorization`, `content-type`, `accept`, `X-BigFred-Impersonate-As`. Rejects WebSocket upgrades. Body cap 2 MiB | HTTP to BigFred |
 | **dccbus_client** | Two long-lived WS sockets to BigFred dcc-bus (programming + impersonated drive), keepalive 2 s, exponential reconnect | WebSocket |
-| **programming_api** | HTTP face of CV/address/F2 pulse; SPA never speaks WS | via dccbus_client |
+| **loco_programming** | `LocoProgrammer` trait; `DccBusProgrammer` and `Z21Programmer`; `Hub::select` from live `locoProgramming.mode` | WS or UDP |
+| **programming_api** | HTTP face of CV/address/F2 pulse; SPA never speaks WS | via loco_programming / dccbus_client |
 | **wireless_api** | REST/SSE face of wireless-programmer (`wp-proto` length-prefixed JSON) | Unix socket |
 | **handset_api** | Authenticated Wi‑Fi SSID/PSK + Z21 IPv4 for on-screen WlanMaus steps | DNS lookup |
 | **pin_api** | Verify participant PIN against BigFred; drop the minted JWT | HTTP to BigFred |
 | **qr** | Public SVG QR for `android` / `bigfred` / `railbox` store or public URLs; organizer-only `GET /api/v1/wizard/wifi-qr.svg` (ZXing `WIFI:` payload, Bearer — PSK is never on the public `qr.svg`) | none |
 | **web SPA** | Fullscreen tiles, i18n (pl/en/de), device-specific steppers | fetch / EventSource |
 
-**Dependency direction:** `config` ← every module. `programming_api` and
-`pin_api` share bearer extraction. `wireless_api` depends on `wp-proto`
-only. The SPA depends on the daemon’s HTTP surface, not on Rust types
-(hand-written TypeScript DTOs in `web/src/api/types.ts`).
+**Dependency direction:** `config` ← every module. `programming_api`
+selects a `LocoProgrammer` per request. `pin_api` shares bearer
+extraction. `wireless_api` depends on `wp-proto` only. Direct Z21 CV
+talks through `z21-lan`. The SPA depends on the daemon’s HTTP surface,
+not on Rust types (hand-written TypeScript DTOs in
+`web/src/api/types.ts`).
 
 ---
 
@@ -251,34 +263,49 @@ I choose?” without leaving the flow.
 
 ---
 
-## 8. Decoder programming (dcc-bus)
+## 8. Decoder programming
 
 The SPA never opens a WebSocket. It POSTs to
-`/api/v1/wizard/programming/*`; the daemon translates to dcc-bus frames
-and waits for the ack (30 s).
+`/api/v1/wizard/programming/*`. Handlers validate the body, then call
+`Hub::select` on the live `locoProgramming` config so a hot-reload can
+switch backends without restart.
 
 ```mermaid
 flowchart LR
     SPA["SPA POST"] --> API["programming_api"]
-    API --> Dcc["DccBusClient"]
+    API --> Hub["Hub.select"]
+    Hub --> Trait["LocoProgrammer"]
+    Trait --> DccP["DccBusProgrammer"]
+    Trait --> Z21P["Z21Programmer"]
+    DccP --> Dcc["DccBusClient"]
     Dcc -->|"loco.cvRead/Write loco.addrGet/Set"| Prog["WS programming"]
-    Dcc -->|"loco.setFunction ON/OFF"| Drive["WS drive + Impersonate-As"]
+    API -->|"loco.setFunction ON/OFF"| Drive["WS drive + Impersonate-As"]
+    Z21P -->|"UDP CV / POM"| Lan["z21-lan"]
     Prog --> BF["BigFred dcc-bus"]
     Drive --> BF
 ```
 
-Two sockets, each with 2 s pings (must stay below the dcc-bus deadman):
+Two dcc-bus sockets, each with 2 s pings (must stay below the dcc-bus
+deadman):
 
 - **programming** — organizer JWT; CV / address on the programming track
-  (`mode: prog`) or POM (`mode: pom`).
+  (`mode: prog`) or POM (`mode: pom`). Used when
+  `locoProgramming.mode` is `bigfred` (default).
 - **drive** — organizer JWT + impersonation for the selected
   participant; F2 (and similar) pulses on the ops track. Replaced when
-  the wizard picks a different user.
+  the wizard picks a different user. Always dcc-bus, including in
+  `direct` mode.
 
-Both are warmed eagerly (`ensure_connected` after login, `ensure_drive`
-when a participant is selected) and re-dialled with exponential backoff.
-If no layout session has started the station, BigFred’s proxy answers
-`503` → `dcc_bus_unavailable`.
+`locoProgramming.mode: direct` sends CV / address over UDP to
+`locoProgramming.z21` (address + port required). Address get/set for
+that backend is computed locally from CV1 / CV17 / CV18 / CV29; the
+dcc-bus backend still delegates those frames to BigFred.
+
+Both programming backends are warmed eagerly (`ensure_connected` after
+login). Drive is warmed with `ensure_drive` when a participant is
+selected. dcc-bus sockets re-dial with exponential backoff. If no
+layout session has started the station, BigFred’s proxy answers `503`
+→ `dcc_bus_unavailable`.
 
 `function_pulse` holds a per-`(address, function)` semaphore so a second
 pulse cannot interleave ON/OFF and leave a function latched (`429
@@ -405,9 +432,10 @@ builds feed hub OS.
 - **One organizer kiosk.** There is no multi-tablet session lock; two
   tablets with the same organizer token can race on pairing and
   programming.
-- **Programming station is BigFred’s.** The wizard picks a catalogue
+- **Programming station.** In `bigfred` mode the wizard picks a catalogue
   station with `programming: true`; it cannot start a layout session.
   The organizer must open the layout in BigFred once so dcc-bus is up.
+  In `direct` mode CV traffic goes to the configured Z21 instead.
 - **No TLS, no clustering.** One process per hub; state is the live
   config plus two WebSockets.
 - **TypeScript DTOs are hand-written** (no tygo). Keep them a thin

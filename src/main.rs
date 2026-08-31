@@ -14,12 +14,12 @@ mod dccbus_client;
 mod ensure_client;
 mod error;
 mod handset_api;
+mod loco_programming;
 mod oauth_proxy;
 mod pin_api;
 mod programming_api;
 mod qr;
 mod wireless_api;
-mod z21_direct;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -39,7 +39,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::config::{Config, PublicConfig};
 use crate::dccbus_client::DccBusClient;
-use crate::z21_direct::Z21DirectClient;
+use crate::loco_programming::Hub;
 
 /// Production SPA bundle. `make web-build` fills this directory before
 /// cargo runs; the placeholder keeps a fresh checkout compiling.
@@ -66,7 +66,7 @@ pub struct AppState {
     pub cfg: Arc<RwLock<Config>>,
     pub http: reqwest::Client,
     pub dcc: Arc<DccBusClient>,
-    pub z21: Arc<Z21DirectClient>,
+    pub loco: Hub,
     pub pulse_locks: Arc<programming_api::PulseLocks>,
     pub wireless: Arc<wireless_api::WirelessClient>,
 }
@@ -113,11 +113,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()?;
+    let dcc = Arc::new(DccBusClient::new(Arc::clone(&cfg), http.clone()));
     let state = AppState {
         cfg: Arc::clone(&cfg),
-        http: http.clone(),
-        dcc: Arc::new(DccBusClient::new(Arc::clone(&cfg), http)),
-        z21: Arc::new(Z21DirectClient::new(Arc::clone(&cfg))),
+        http,
+        dcc: Arc::clone(&dcc),
+        loco: Hub::new(dcc, Arc::clone(&cfg)),
         pulse_locks: Arc::new(programming_api::PulseLocks::default()),
         wireless: Arc::new(wireless_api::WirelessClient::new(Arc::clone(&cfg))),
     };

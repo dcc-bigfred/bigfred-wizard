@@ -35,14 +35,11 @@ use tokio_tungstenite::tungstenite::Message;
 
 use crate::config::Config;
 use crate::error::ApiError;
+use crate::loco_programming::{Ack, Status};
 use tokio::sync::RwLock;
 
-/// dcc-bus frame types used by the wizard.
-pub const FRAME_CV_READ: &str = "loco.cvRead";
-pub const FRAME_CV_WRITE: &str = "loco.cvWrite";
-pub const FRAME_ADDR_GET: &str = "loco.addrGet";
-pub const FRAME_ADDR_SET: &str = "loco.addrSet";
-pub const FRAME_SET_FUNCTION: &str = "loco.setFunction";
+/// dcc-bus frame type used for ops-track function pulses.
+const FRAME_SET_FUNCTION: &str = "loco.setFunction";
 
 const ACK_TIMEOUT: Duration = Duration::from_secs(30);
 /// Keep-alive for both permanent sockets. Must stay below dcc-bus deadman
@@ -68,29 +65,6 @@ struct Envelope {
     payload: Option<serde_json::Value>,
 }
 
-/// One configuration variable, mirroring `protocol.CVEntry`.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct CvEntry {
-    pub cv: u16,
-    pub value: u8,
-}
-
-/// `protocol.AckPayload` (only the fields the wizard reads back).
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Ack {
-    #[serde(default)]
-    pub ok: bool,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub error: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cvs: Option<Vec<CvEntry>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub loco_address: Option<u16>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub long_address: Option<bool>,
-}
-
 /// One row of `GET /api/v1/command-stations/catalogue`.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -106,27 +80,6 @@ pub struct CommandStation {
     pub hide_in_throttle: bool,
     #[serde(default)]
     pub default_programming_track_output: String,
-}
-
-/// What `GET /api/v1/wizard/programming/status` reports.
-#[derive(Debug, Clone, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Status {
-    pub connected: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub command_station_id: Option<u64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub command_station_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub default_programming_track_output: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_error: Option<String>,
-    pub reconnects: u64,
-    /// Impersonated drive socket is up (F2 / ops track).
-    pub drive_connected: bool,
-    /// Participant the drive socket is impersonating, when connected.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub drive_as: Option<String>,
 }
 
 type Pending = Arc<StdMutex<HashMap<String, oneshot::Sender<Ack>>>>;
