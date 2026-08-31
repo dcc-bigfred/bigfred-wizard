@@ -2,6 +2,7 @@
 //! this module maps that onto wizard routes and [`ApiError`].
 
 pub mod oauth;
+pub mod pin;
 pub mod proxy;
 
 use std::path::PathBuf;

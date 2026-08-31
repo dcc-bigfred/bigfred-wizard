@@ -4,6 +4,7 @@
 //! envelope. Config is a snapshot ([`BigFredConfig`]); the host refreshes
 //! it on reload.
 
+pub mod apis;
 mod config;
 mod dccbus;
 mod error;

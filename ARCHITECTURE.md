@@ -119,15 +119,15 @@ bigfred-wizard/
 ├── docs/screenshot-main.png
 ├── .github/workflows/{ci,release}.yml
 ├── crates/z21-lan/            # Z21 LAN UDP CV / POM packets
-├── crates/bigfred-client/     # OAuth drop-in, HTTP proxy, dcc-bus WS (no axum)
+├── crates/bigfred-client/     # OAuth drop-in, HTTP proxy, dcc-bus WS, apis (no axum)
 ├── src/                       # Axum daemon
 │   ├── main.rs                # listen, router, SPA fallback
 │   ├── config.rs / config_watch.rs
-│   ├── bigfred/               # axum wrappers: oauth token + reverse proxy
+│   ├── bigfred/               # axum wrappers: oauth, pin, reverse proxy
 │   ├── loco_programming/      # LocoProgrammer trait + dcc-bus / Z21 backends
 │   ├── programming_api.rs     # HTTP face of CV/address/F2 pulse
 │   ├── wireless_api.rs
-│   ├── handset_api.rs / pin_api.rs / qr.rs
+│   ├── handset_api.rs / qr.rs
 │   └── error.rs
 └── web/                       # Vite + React SPA
     ├── src/pages/             # Home, account, drive, loco, login
@@ -147,19 +147,18 @@ One binary crate plus `z21-lan` and `bigfred-client`, with an npm frontend compi
 |---|---|---|
 | **config** | `bigfred-wizard.json` + `.example` seed, `PublicConfig` (no PSK / no OAuth secret), builtin redirect URIs, `BigFredConfig` snapshot | filesystem |
 | **config_watch** | inotify on the config directory, 300 ms debounce, ignore `.example` / editor junk | inotify thread |
-| **bigfred-client** | OAuth drop-in + token exchange, HTTP forward, dcc-bus WS (programming + drive). Owns wire types (`Ack`, `CvEntry`, `Status`) | HTTP / WS / fs |
-| **bigfred/** | Axum wrappers: `oauth::token`, `proxy::proxy`; `From<bigfred_client::Error> for ApiError` | via bigfred-client |
+| **bigfred-client** | OAuth drop-in + token exchange, HTTP forward, dcc-bus WS (programming + drive), `apis::verify_pin`. Owns wire types (`Ack`, `CvEntry`, `Status`) | HTTP / WS / fs |
+| **bigfred/** | Axum wrappers: `oauth::token`, `pin::verify_pin`, `proxy::proxy`; `From<bigfred_client::Error> for ApiError` | via bigfred-client |
 | **loco_programming** | `LocoProgrammer` trait; `DccBusProgrammer` and `Z21Programmer`; `Hub::select` from live `locoProgramming.mode` | WS or UDP |
 | **programming_api** | HTTP face of CV/address/F2 pulse; SPA never speaks WS | via loco_programming / bigfred-client |
 | **wireless_api** | REST/SSE face of wireless-programmer (`wp-proto` length-prefixed JSON) | Unix socket |
 | **handset_api** | Authenticated Wi‑Fi SSID/PSK + Z21 IPv4 for on-screen WlanMaus steps | DNS lookup |
-| **pin_api** | Verify participant PIN against BigFred; drop the minted JWT | HTTP to BigFred |
 | **qr** | Public SVG QR for `android` / `bigfred` / `railbox` store or public URLs; organizer-only `GET /api/v1/wizard/wifi-qr.svg` (ZXing `WIFI:` payload, Bearer — PSK is never on the public `qr.svg`) | none |
 | **web SPA** | Fullscreen tiles, i18n (pl/en/de), device-specific steppers | fetch / EventSource |
 
 **Dependency direction:** `config` ← every module. `programming_api`
 selects a `LocoProgrammer` per request. `src/bigfred` maps
-`bigfred_client::Error` onto `ApiError`. `pin_api` shares bearer
+`bigfred_client::Error` onto `ApiError`. `bigfred::pin` shares bearer
 extraction. `wireless_api` depends on `wp-proto` only. Direct Z21 CV
 talks through `z21-lan`. The SPA depends on the daemon’s HTTP surface,
 not on Rust types (hand-written TypeScript DTOs in
