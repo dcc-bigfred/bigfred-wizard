@@ -1,20 +1,18 @@
 //! HTTP face of the decoder programming flows. React never speaks
-//! WebSocket: it posts here, the daemon translates to dcc-bus frames and
-//! waits for the ack.
+//! WebSocket: it posts here, the daemon picks a [`LocoProgrammer`]
+//! backend and waits for the ack. F2 / ops-track pulses stay on dcc-bus.
 
 use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 
-use crate::dccbus_client::{
-    Ack, CvEntry, Status, FRAME_ADDR_GET, FRAME_ADDR_SET, FRAME_CV_READ, FRAME_CV_WRITE,
-};
+use crate::config::Config;
 use crate::error::{ApiError, ApiResult};
+use crate::loco_programming::{Ack, CvEntry, LocoProgrammer, ProgrammingMode, Selected, Status};
 use crate::AppState;
 
 /// Highest CV number reachable via NMRA S-9.2.2 indexed addressing —
@@ -131,18 +129,9 @@ pub async fn cvs_read(
         return Err(ApiError::bad_request("invalid_cvs"));
     }
     let mode = validate_mode(body.mode)?;
-    if state.config().await.loco_programming.is_direct() {
-        let ack = state
-            .z21
-            .read_cvs(body.address, &body.cvs, mode.as_deref())
-            .await?;
-        return Ok(Json(ProgrammingResponse {
-            ack,
-            command_station_id: None,
-        }));
-    }
-    let payload = json!({ "address": body.address, "cvs": body.cvs, "mode": mode });
-    run(&state, &token, FRAME_CV_READ, payload).await
+    let p = start_programming(&state).await?;
+    let ack = p.read_cvs(&token, body.address, &body.cvs, mode).await?;
+    Ok(respond(p, ack))
 }
 
 pub async fn cvs_write(
@@ -156,18 +145,9 @@ pub async fn cvs_write(
         return Err(ApiError::bad_request("invalid_cvs"));
     }
     let mode = validate_mode(body.mode)?;
-    if state.config().await.loco_programming.is_direct() {
-        let ack = state
-            .z21
-            .write_cvs(body.address, &body.cvs, mode.as_deref())
-            .await?;
-        return Ok(Json(ProgrammingResponse {
-            ack,
-            command_station_id: None,
-        }));
-    }
-    let payload = json!({ "address": body.address, "cvs": body.cvs, "mode": mode });
-    run(&state, &token, FRAME_CV_WRITE, payload).await
+    let p = start_programming(&state).await?;
+    let ack = p.write_cvs(&token, body.address, &body.cvs, mode).await?;
+    Ok(respond(p, ack))
 }
 
 pub async fn address_get(
@@ -179,24 +159,15 @@ pub async fn address_get(
     let mode = validate_mode(body.mode)?;
     // POM reads have to name the decoder they interrogate; on the
     // programming track the address is implicit.
-    if mode.as_deref() == Some("pom") {
+    if mode.is_pom() {
         match body.address {
             Some(addr) => validate_address(addr)?,
             None => return Err(ApiError::bad_request("address_required_for_pom")),
         }
     }
-    let payload = json!({ "address": body.address.unwrap_or(0), "mode": mode });
-    if state.config().await.loco_programming.is_direct() {
-        let ack = state
-            .z21
-            .addr_get(body.address.unwrap_or(0), mode.as_deref())
-            .await?;
-        return Ok(Json(ProgrammingResponse {
-            ack,
-            command_station_id: None,
-        }));
-    }
-    run(&state, &token, FRAME_ADDR_GET, payload).await
+    let p = start_programming(&state).await?;
+    let ack = p.addr_get(&token, body.address.unwrap_or(0), mode).await?;
+    Ok(respond(p, ack))
 }
 
 pub async fn address_set(
@@ -207,22 +178,11 @@ pub async fn address_set(
     let token = bearer(&headers)?;
     validate_address(body.address)?;
     let mode = validate_mode(body.mode)?;
-    let payload = json!({
-        "address": body.address,
-        "mode": mode,
-        "verify": body.verify.unwrap_or(false),
-    });
-    if state.config().await.loco_programming.is_direct() {
-        let ack = state
-            .z21
-            .addr_set(body.address, mode.as_deref(), body.verify.unwrap_or(false))
-            .await?;
-        return Ok(Json(ProgrammingResponse {
-            ack,
-            command_station_id: None,
-        }));
-    }
-    run(&state, &token, FRAME_ADDR_SET, payload).await
+    let p = start_programming(&state).await?;
+    let ack = p
+        .addr_set(&token, body.address, mode, body.verify.unwrap_or(false))
+        .await?;
+    Ok(respond(p, ack))
 }
 
 /// Turns a function on, waits `durationMs` (default 1s), then turns it off.
@@ -247,12 +207,7 @@ pub async fn function_pulse(
         .unwrap_or(DEFAULT_PULSE_MS)
         .clamp(1, MAX_PULSE_MS);
 
-    if !state.config().await.enabled {
-        return Err(ApiError::new(
-            axum::http::StatusCode::FORBIDDEN,
-            "wizard_disabled",
-        ));
-    }
+    wizard_enabled(&state.config().await)?;
 
     // Reject a concurrent pulse to the same (address, function) so ON/OFF
     // frames cannot interleave and leave the function latched.
@@ -273,36 +228,17 @@ pub async fn function_pulse(
 
 /// Reports the socket state plus the station the wizard would program on.
 pub async fn status(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Status>> {
-    if state.config().await.loco_programming.is_direct() {
-        return Ok(Json(state.z21.status()));
-    }
-    let mut status = state.dcc.status();
-    if let Ok(token) = bearer(&headers) {
-        if let Ok(station) = state.dcc.pick_station(&token).await {
-            status.command_station_id = Some(station.id);
-            status.command_station_name = Some(station.name);
-            status.default_programming_track_output =
-                Some(station.default_programming_track_output);
-        } else if status.command_station_id.is_none() {
-            status.last_error = Some("no_programming_station".to_string());
-        }
-    }
-    Ok(Json(status))
+    let token = bearer(&headers).ok();
+    let cfg = state.config().await;
+    let p = state.loco.select(&cfg.loco_programming);
+    Ok(Json(p.snapshot(token.as_deref()).await))
 }
 
-/// Warms the dcc-bus WebSocket if it is not already connected.
+/// Warms the programming backend if it is not already connected.
 pub async fn connect(State(state): State<AppState>, headers: HeaderMap) -> ApiResult<Json<Status>> {
     let token = bearer(&headers)?;
-    if !state.config().await.enabled {
-        return Err(ApiError::new(
-            axum::http::StatusCode::FORBIDDEN,
-            "wizard_disabled",
-        ));
-    }
-    if state.config().await.loco_programming.is_direct() {
-        return Ok(Json(state.z21.ensure_connected().await?));
-    }
-    Ok(Json(state.dcc.ensure_connected(&token).await?))
+    let p = start_programming(&state).await?;
+    Ok(Json(p.ensure_connected(&token).await?))
 }
 
 #[derive(Debug, Deserialize)]
@@ -320,33 +256,31 @@ pub async fn drive_connect(
     Json(body): Json<DriveConnectRequest>,
 ) -> ApiResult<Json<Status>> {
     let token = bearer(&headers)?;
-    if !state.config().await.enabled {
-        return Err(ApiError::new(
-            axum::http::StatusCode::FORBIDDEN,
-            "wizard_disabled",
-        ));
-    }
+    wizard_enabled(&state.config().await)?;
     Ok(Json(state.dcc.ensure_drive(&token, &body.as_login).await?))
 }
 
-async fn run(
-    state: &AppState,
-    token: &str,
-    frame: &str,
-    payload: serde_json::Value,
-) -> ApiResult<Json<ProgrammingResponse>> {
-    if !state.config().await.enabled {
+fn wizard_enabled(cfg: &Config) -> Result<(), ApiError> {
+    if !cfg.enabled {
         return Err(ApiError::new(
             axum::http::StatusCode::FORBIDDEN,
             "wizard_disabled",
         ));
     }
-    let ack = state.dcc.request(token, frame, payload).await?;
-    let command_station_id = state.dcc.status().command_station_id;
-    Ok(Json(ProgrammingResponse {
+    Ok(())
+}
+
+async fn start_programming(state: &AppState) -> Result<Selected<'_>, ApiError> {
+    let cfg = state.config().await;
+    wizard_enabled(&cfg)?;
+    Ok(state.loco.select(&cfg.loco_programming))
+}
+
+fn respond(p: Selected<'_>, ack: Ack) -> Json<ProgrammingResponse> {
+    Json(ProgrammingResponse {
         ack,
-        command_station_id,
-    }))
+        command_station_id: p.status().command_station_id,
+    })
 }
 
 /// Extracts the organizer's JWT from `Authorization: Bearer …`.
@@ -373,12 +307,12 @@ fn validate_address(address: u16) -> Result<(), ApiError> {
     Ok(())
 }
 
-/// `None` lets the daemon apply the station's default track.
-fn validate_mode(mode: Option<String>) -> Result<Option<String>, ApiError> {
+/// [`ProgrammingMode::Default`] lets the daemon apply the station's default track.
+fn validate_mode(mode: Option<String>) -> Result<ProgrammingMode, ApiError> {
     match mode.as_deref().map(str::trim) {
-        None | Some("") => Ok(None),
-        Some("pom") => Ok(Some("pom".to_string())),
-        Some("prog") => Ok(Some("prog".to_string())),
+        None | Some("") => Ok(ProgrammingMode::Default),
+        Some("pom") => Ok(ProgrammingMode::Pom),
+        Some("prog") => Ok(ProgrammingMode::Prog),
         Some(_) => Err(ApiError::bad_request("invalid_mode")),
     }
 }
@@ -401,11 +335,18 @@ mod tests {
 
     #[test]
     fn mode_allowlist() {
-        assert_eq!(validate_mode(None).unwrap(), None);
-        assert_eq!(validate_mode(Some("".into())).unwrap(), None);
+        assert_eq!(validate_mode(None).unwrap(), ProgrammingMode::Default);
         assert_eq!(
-            validate_mode(Some("pom".into())).unwrap().as_deref(),
-            Some("pom")
+            validate_mode(Some("".into())).unwrap(),
+            ProgrammingMode::Default
+        );
+        assert_eq!(
+            validate_mode(Some("pom".into())).unwrap(),
+            ProgrammingMode::Pom
+        );
+        assert_eq!(
+            validate_mode(Some("prog".into())).unwrap(),
+            ProgrammingMode::Prog
         );
         assert!(validate_mode(Some("service".into())).is_err());
     }

@@ -360,6 +360,19 @@ impl Config {
         trim_slash(&self.bigfred_url)
     }
 
+    /// Snapshot consumed by `bigfred-client` (hot-reloadable).
+    pub fn bigfred_view(&self) -> bigfred_client::BigFredConfig {
+        bigfred_client::BigFredConfig {
+            api_base: self.bigfred_api_base(),
+            ws_base: self.bigfred_ws_base(),
+            sso_client_id: self.sso_client_id.clone(),
+            redirect_uris: self.redirect_uris.clone(),
+            oauth_dropin_dir: oauth_clients_dir(),
+            oauth_display_name: "BigFred Wizard".into(),
+            fixed_dcc_bus: self.loco_programming.fixed_dcc_bus(),
+        }
+    }
+
     pub fn redirect_uri_allowed(&self, uri: &str) -> bool {
         let uri = uri.trim();
         self.redirect_uris.iter().any(|u| u.trim() == uri)

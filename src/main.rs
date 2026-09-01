@@ -7,19 +7,15 @@
 //!   * everything else under `/api/v1/*` — reverse-proxied to BigFred so
 //!     the SPA stays same-origin.
 
-mod bigfred_proxy;
+mod bigfred;
 mod config;
 mod config_watch;
-mod dccbus_client;
-mod ensure_client;
 mod error;
 mod handset_api;
-mod oauth_proxy;
-mod pin_api;
+mod loco_programming;
 mod programming_api;
 mod qr;
 mod wireless_api;
-mod z21_direct;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -38,8 +34,7 @@ use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::config::{Config, PublicConfig};
-use crate::dccbus_client::DccBusClient;
-use crate::z21_direct::Z21DirectClient;
+use crate::loco_programming::Hub;
 
 /// Production SPA bundle. `make web-build` fills this directory before
 /// cargo runs; the placeholder keeps a fresh checkout compiling.
@@ -64,9 +59,10 @@ struct Args {
 #[derive(Clone)]
 pub struct AppState {
     pub cfg: Arc<RwLock<Config>>,
+    pub bf_cfg: Arc<RwLock<bigfred_client::BigFredConfig>>,
     pub http: reqwest::Client,
-    pub dcc: Arc<DccBusClient>,
-    pub z21: Arc<Z21DirectClient>,
+    pub dcc: Arc<bigfred_client::DccBusClient>,
+    pub loco: Hub,
     pub pulse_locks: Arc<programming_api::PulseLocks>,
     pub wireless: Arc<wireless_api::WirelessClient>,
 }
@@ -97,7 +93,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // A missing/unwritable data dir must not stop the daemon: the SPA and
     // the proxy still work, only the SSO exchange will fail loudly.
-    match ensure_client::ensure(&cfg) {
+    match crate::bigfred::ensure_dropin(&cfg.bigfred_view()) {
         Ok(path) => tracing::info!(path = %path.display(), "oauth client ready"),
         Err(err) => tracing::error!(error = %err, "oauth client drop-in unavailable"),
     }
@@ -110,14 +106,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bigfred = cfg.bigfred_api_base();
 
     let cfg = Arc::new(RwLock::new(cfg));
+    let bf_cfg = Arc::new(RwLock::new(cfg.read().await.bigfred_view()));
     let http = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
         .build()?;
+    let dcc = Arc::new(bigfred_client::DccBusClient::new(
+        Arc::clone(&bf_cfg),
+        http.clone(),
+    ));
     let state = AppState {
         cfg: Arc::clone(&cfg),
-        http: http.clone(),
-        dcc: Arc::new(DccBusClient::new(Arc::clone(&cfg), http)),
-        z21: Arc::new(Z21DirectClient::new(Arc::clone(&cfg))),
+        bf_cfg: Arc::clone(&bf_cfg),
+        http,
+        dcc: Arc::clone(&dcc),
+        loco: Hub::new(dcc, Arc::clone(&cfg)),
         pulse_locks: Arc::new(programming_api::PulseLocks::default()),
         wireless: Arc::new(wireless_api::WirelessClient::new(Arc::clone(&cfg))),
     };
@@ -125,6 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let watch_stop = spawn_config_reloader(
         config_path.clone(),
         Arc::clone(&cfg),
+        Arc::clone(&bf_cfg),
         http_override,
         listen_http.clone(),
         cors_enabled,
@@ -151,6 +154,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 fn spawn_config_reloader(
     config_path: PathBuf,
     cfg: Arc<RwLock<Config>>,
+    bf_cfg: Arc<RwLock<bigfred_client::BigFredConfig>>,
     http_override: Option<String>,
     bound_http: String,
     bound_cors_enabled: bool,
@@ -199,12 +203,15 @@ fn spawn_config_reloader(
                     }
 
                     {
+                        let view = new_cfg.bigfred_view();
                         let mut guard = cfg.write().await;
                         *guard = new_cfg.clone();
+                        drop(guard);
+                        *bf_cfg.write().await = view;
                     }
                     tracing::info!(path = %config_path.display(), "config reloaded");
 
-                    match ensure_client::ensure(&new_cfg) {
+                    match crate::bigfred::ensure_dropin(&new_cfg.bigfred_view()) {
                         Ok(path) => {
                             tracing::info!(path = %path.display(), "oauth client synced after reload")
                         }
@@ -235,8 +242,8 @@ fn router(state: AppState, cors_enabled: bool, cors_origins: &[String]) -> Route
         .route("/api/v1/wizard/handset-setup", get(handset_api::setup))
         .route("/api/v1/wizard/qr.svg", get(qr::qr_svg))
         .route("/api/v1/wizard/wifi-qr.svg", get(qr::wifi_qr_svg))
-        .route("/api/v1/wizard/oauth/token", post(oauth_proxy::token))
-        .route("/api/v1/wizard/verify-pin", post(pin_api::verify_pin))
+        .route("/api/v1/wizard/oauth/token", post(bigfred::oauth::token))
+        .route("/api/v1/wizard/verify-pin", post(bigfred::pin::verify_pin))
         .route(
             "/api/v1/wizard/programming/cvs/read",
             post(programming_api::cvs_read),
@@ -310,7 +317,7 @@ fn router(state: AppState, cors_enabled: bool, cors_origins: &[String]) -> Route
                 .allow_headers([
                     header::CONTENT_TYPE,
                     header::AUTHORIZATION,
-                    header::HeaderName::from_static(bigfred_proxy::IMPERSONATE_HEADER),
+                    header::HeaderName::from_static(bigfred_client::IMPERSONATE_HEADER),
                 ]),
         );
     }
@@ -330,7 +337,7 @@ async fn public_config(State(state): State<AppState>) -> Json<PublicConfig> {
 /// SPA (client-side routing needs the index.html fallback).
 async fn dispatch(State(state): State<AppState>, req: Request<Body>) -> Response {
     if req.uri().path().starts_with("/api/v1/") {
-        return bigfred_proxy::proxy(State(state), req).await;
+        return bigfred::proxy::proxy(State(state), req).await;
     }
     if req.method() != Method::GET && req.method() != Method::HEAD {
         return StatusCode::METHOD_NOT_ALLOWED.into_response();
