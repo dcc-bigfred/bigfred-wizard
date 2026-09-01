@@ -7,7 +7,7 @@ license = "MIT"
 publish = false
 
 [workspace]
-members = [".", "crates/z21-lan", "crates/bigfred-client"]
+members = [".", "crates/z21-lan"]
 
 [[bin]]
 name = "bigfred-wizard"
@@ -36,7 +36,7 @@ qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 # Wire types for the wireless-programmer Unix socket (sibling repo).
 wp-proto = { path = "../wireless-programmer/crates/wp-proto" }
 z21-lan = { path = "crates/z21-lan" }
-bigfred-client = { path = "crates/bigfred-client" }
+bigfred-client = { git = "https://github.com/dcc-bigfred/sdk.git", branch = "main" }
 
 [profile.release]
 lto = true
