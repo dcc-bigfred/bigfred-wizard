@@ -109,7 +109,7 @@ spawn the inotify reloader, bind `:8091`, serve until SIGINT/SIGTERM.
 
 ```
 bigfred-wizard/
-├── Cargo.toml                 # workspace: binary + crates/z21-lan + crates/bigfred-client
+├── Cargo.toml                 # workspace: binary + crates/z21-lan
 ├── Makefile                   # web-build, host, musl, test, dev-*
 ├── README.md                  # end-user description
 ├── ARCHITECTURE.md            # this file
@@ -119,7 +119,6 @@ bigfred-wizard/
 ├── docs/screenshot-main.png
 ├── .github/workflows/{ci,release}.yml
 ├── crates/z21-lan/            # Z21 LAN UDP CV / POM packets
-├── crates/bigfred-client/     # OAuth drop-in, HTTP proxy, dcc-bus WS, apis (no axum)
 ├── src/                       # Axum daemon
 │   ├── main.rs                # listen, router, SPA fallback
 │   ├── config.rs / config_watch.rs
@@ -137,7 +136,8 @@ bigfred-wizard/
     └── scripts/check-offline-bundle.mjs
 ```
 
-One binary crate plus `z21-lan` and `bigfred-client`, with an npm frontend compiled into that binary.
+One binary crate plus `z21-lan`, with an npm frontend compiled into that binary.
+`bigfred-client` comes from [dcc-bigfred/sdk](https://github.com/dcc-bigfred/sdk) (`rust/crates/bigfred-client`, git `main`).
 
 ---
 
@@ -147,7 +147,7 @@ One binary crate plus `z21-lan` and `bigfred-client`, with an npm frontend compi
 |---|---|---|
 | **config** | `bigfred-wizard.json` + `.example` seed, `PublicConfig` (no PSK / no OAuth secret), builtin redirect URIs, `BigFredConfig` snapshot | filesystem |
 | **config_watch** | inotify on the config directory, 300 ms debounce, ignore `.example` / editor junk | inotify thread |
-| **bigfred-client** | OAuth drop-in + token exchange, HTTP forward, dcc-bus WS (programming + drive), `apis::verify_pin`. Owns wire types (`Ack`, `CvEntry`, `Status`) | HTTP / WS / fs |
+| **bigfred-client** | Git dep on [dcc-bigfred/sdk](https://github.com/dcc-bigfred/sdk) (`rust/crates/bigfred-client`). OAuth drop-in + token exchange, HTTP forward, dcc-bus WS (programming + drive), `apis::verify_pin`. Owns wire types (`Ack`, `CvEntry`, `Status`) | HTTP / WS / fs |
 | **bigfred/** | Axum wrappers: `oauth::token`, `pin::verify_pin`, `proxy::proxy`; `From<bigfred_client::Error> for ApiError` | via bigfred-client |
 | **loco_programming** | `LocoProgrammer` trait; `DccBusProgrammer` and `Z21Programmer`; `Hub::select` from live `locoProgramming.mode` | WS or UDP |
 | **programming_api** | HTTP face of CV/address/F2 pulse; SPA never speaks WS | via loco_programming / bigfred-client |
