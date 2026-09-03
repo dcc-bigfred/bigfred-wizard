@@ -27,14 +27,6 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Fetch wp-proto sibling repo
-        run: |
-          set -euo pipefail
-          dest="${GITHUB_WORKSPACE}/../wireless-programmer"
-          if [ ! -f "${dest}/crates/wp-proto/Cargo.toml" ]; then
-            git clone --depth 1 https://github.com/dcc-bigfred/wireless-programmer.git "$dest"
-          fi
-
       - name: Format
         run: cargo fmt --all -- --check
 
@@ -90,14 +82,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.name }}-musl-spa
-
-      - name: Fetch wp-proto sibling repo
-        run: |
-          set -euo pipefail
-          dest="${GITHUB_WORKSPACE}/../wireless-programmer"
-          if [ ! -f "${dest}/crates/wp-proto/Cargo.toml" ]; then
-            git clone --depth 1 https://github.com/dcc-bigfred/wireless-programmer.git "$dest"
-          fi
 
       - name: Install musl toolchain
         run: |

@@ -4,11 +4,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use dcc_bigfred_proto_z21 as z21;
 use tokio::sync::{Mutex, RwLock};
 
 use crate::config::Config;
 use crate::error::ApiError;
 
+use super::z21_udp::{CvError, Z21Client};
 use super::{Ack, CvEntry, LocoProgrammer, ProgrammingMode, Status};
 
 const SETTLE: Duration = Duration::from_millis(300);
@@ -16,7 +18,7 @@ const ADDR_CVS: [u16; 4] = [1, 17, 18, 29];
 
 pub struct Z21Programmer {
     cfg: Arc<RwLock<Config>>,
-    inner: Mutex<Option<z21_lan::Z21Client>>,
+    inner: Mutex<Option<Z21Client>>,
     status: std::sync::Mutex<Status>,
 }
 
@@ -31,23 +33,23 @@ impl Z21Programmer {
 
     async fn ensure_inner(
         &self,
-    ) -> Result<tokio::sync::MutexGuard<'_, Option<z21_lan::Z21Client>>, ApiError> {
+    ) -> Result<tokio::sync::MutexGuard<'_, Option<Z21Client>>, ApiError> {
         let mut guard = self.inner.lock().await;
         if guard.is_none() {
             let cfg = self.cfg.read().await;
-            let z21 = &cfg.loco_programming.z21;
-            if !z21.skip_scan() {
+            let z21_cfg = &cfg.loco_programming.z21;
+            if !z21_cfg.skip_scan() {
                 return Err(ApiError::unavailable("z21_not_configured").with_detail(
                     "locoProgramming.z21.address and port are required in direct mode",
                 ));
             }
-            let addr: SocketAddr = format!("{}:{}", z21.address.trim(), z21.port)
+            let addr: SocketAddr = format!("{}:{}", z21_cfg.address.trim(), z21_cfg.port)
                 .parse()
                 .map_err(|err: std::net::AddrParseError| {
                     ApiError::bad_request("invalid_z21_address").with_detail(err.to_string())
                 })?;
             drop(cfg);
-            let client = z21_lan::Z21Client::connect(addr).await.map_err(|err| {
+            let client = Z21Client::connect(addr).await.map_err(|err| {
                 ApiError::unavailable("z21_unreachable").with_detail(err.to_string())
             })?;
             *guard = Some(client);
@@ -200,64 +202,35 @@ impl LocoProgrammer for Z21Programmer {
     }
 }
 
-fn map_cv_err(err: z21_lan::CvError) -> ApiError {
+fn map_cv_err(err: CvError) -> ApiError {
     match err {
-        z21_lan::CvError::Timeout => ApiError::unavailable("programming_timeout"),
-        z21_lan::CvError::Nack | z21_lan::CvError::ShortCircuit => {
+        CvError::Timeout => ApiError::unavailable("programming_timeout"),
+        CvError::Nack | CvError::ShortCircuit => {
             ApiError::unavailable("programming_failed").with_detail(err.to_string())
         }
-        z21_lan::CvError::Io(err) => {
-            ApiError::unavailable("z21_unreachable").with_detail(err.to_string())
-        }
+        CvError::Io(err) => ApiError::unavailable("z21_unreachable").with_detail(err.to_string()),
     }
 }
 
 fn address_from_cvs(cv1: u8, cv17: u8, cv18: u8, cv29: u8) -> Result<(u16, bool), ApiError> {
-    if cv29 & 0x20 != 0 {
-        let addr = (u16::from(cv17 & 0x3F) << 8) | u16::from(cv18);
-        Ok((addr, true))
-    } else {
-        Ok((u16::from(cv1), false))
-    }
+    z21::address_from_cvs(cv1, cv17, cv18, cv29)
+        .ok_or_else(|| ApiError::unavailable("programming_failed"))
 }
 
 fn address_cv_writes(addr: u16, cv29: u8) -> Result<(Vec<CvEntry>, bool), ApiError> {
-    if addr == 0 {
-        return Err(ApiError::bad_request("invalid_address"));
-    }
-    if addr <= 127 {
-        Ok((
-            vec![
-                CvEntry {
-                    cv: 1,
-                    value: addr as u8,
-                },
-                CvEntry {
-                    cv: 29,
-                    value: cv29 & !0x20,
-                },
-            ],
-            false,
-        ))
-    } else {
-        Ok((
-            vec![
-                CvEntry {
-                    cv: 17,
-                    value: ((addr >> 8) as u8) | 0xC0,
-                },
-                CvEntry {
-                    cv: 18,
-                    value: addr as u8,
-                },
-                CvEntry {
-                    cv: 29,
-                    value: cv29 | 0x20,
-                },
-            ],
-            true,
-        ))
-    }
+    let writes = z21::address_cv_writes(addr, cv29).map_err(|err| match err {
+        z21::Error::InvalidAddress => ApiError::bad_request("invalid_address"),
+        z21::Error::BufferFull => ApiError::unavailable("programming_failed"),
+    })?;
+    let long = addr > 127;
+    Ok((
+        writes
+            .iter()
+            .copied()
+            .map(|(cv, value)| CvEntry { cv, value })
+            .collect(),
+        long,
+    ))
 }
 
 #[cfg(test)]

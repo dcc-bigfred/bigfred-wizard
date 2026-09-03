@@ -7,6 +7,7 @@
 mod dcc_bus;
 mod types;
 mod z21;
+mod z21_udp;
 
 use std::sync::Arc;
 

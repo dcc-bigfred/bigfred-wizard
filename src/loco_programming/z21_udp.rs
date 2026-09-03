@@ -1,13 +1,14 @@
 //! Connected-UDP Z21 client with a single-flight send-and-await window.
+//!
+//! Framing comes from `dcc-bigfred-proto-z21`; this module owns the socket.
 
 use std::net::SocketAddr;
 use std::time::Duration;
 
+use dcc_bigfred_proto_z21 as z21;
 use tokio::net::UdpSocket;
 use tokio::sync::Mutex;
 use tokio::time::{timeout, Instant};
-
-use crate::packets::{cv_read, cv_write, parse_cv_reply, pom_read, pom_write, CvReply};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -26,6 +27,7 @@ pub enum CvError {
 /// One connected UDP socket talking to a Z21 / RailBOX LAN command station.
 pub struct Z21Client {
     sock: UdpSocket,
+    codec: z21::Client,
     io: Mutex<()>,
     timeout: Duration,
 }
@@ -36,41 +38,51 @@ impl Z21Client {
         sock.connect(addr).await?;
         Ok(Self {
             sock,
+            codec: z21::Client::new(),
             io: Mutex::new(()),
             timeout: DEFAULT_TIMEOUT,
         })
     }
 
-    pub fn set_timeout(&mut self, timeout: Duration) {
-        if !timeout.is_zero() {
-            self.timeout = timeout;
-        }
-    }
-
     pub async fn read_cv(&self, cv: u16) -> Result<u8, CvError> {
         let _g = self.io.lock().await;
-        self.await_result(&cv_read(cv), cv).await
+        self.await_result(&z21::Command::CvRead { cv }, cv).await
     }
 
     pub async fn write_cv(&self, cv: u16, value: u8) -> Result<u8, CvError> {
         let _g = self.io.lock().await;
-        self.await_result(&cv_write(cv, value), cv).await
+        self.await_result(&z21::Command::CvWrite { cv, value }, cv)
+            .await
     }
 
     pub async fn read_cv_pom(&self, addr: u16, cv: u16) -> Result<u8, CvError> {
         let _g = self.io.lock().await;
-        self.await_result(&pom_read(addr, cv), cv).await
+        self.await_result(&z21::Command::PomRead { addr, cv }, cv)
+            .await
     }
 
     /// POM write has no Z21 reply (spec §6.6).
     pub async fn write_cv_pom(&self, addr: u16, cv: u16, value: u8) -> Result<(), CvError> {
         let _g = self.io.lock().await;
-        self.sock.send(&pom_write(addr, cv, value)).await?;
+        let pkt = self.encode(&z21::Command::PomWrite { addr, cv, value })?;
+        self.sock.send(pkt.as_slice()).await?;
         Ok(())
     }
 
-    async fn await_result(&self, req: &[u8], cv: u16) -> Result<u8, CvError> {
-        self.sock.send(req).await?;
+    fn encode(&self, cmd: &z21::Command) -> Result<z21::WireBuf, CvError> {
+        let mut out = z21::WireBuf::new();
+        self.codec.encode(cmd, &mut out).map_err(|err| {
+            CvError::Io(std::io::Error::other(match err {
+                z21::Error::BufferFull => "z21 encode buffer full",
+                z21::Error::InvalidAddress => "z21 invalid address",
+            }))
+        })?;
+        Ok(out)
+    }
+
+    async fn await_result(&self, cmd: &z21::Command, cv: u16) -> Result<u8, CvError> {
+        let pkt = self.encode(cmd)?;
+        self.sock.send(pkt.as_slice()).await?;
         let deadline = Instant::now() + self.timeout;
         let mut buf = [0u8; 1500];
         loop {
@@ -83,12 +95,12 @@ impl Z21Client {
                 Ok(Err(err)) => return Err(err.into()),
                 Err(_) => return Err(CvError::Timeout),
             };
-            match parse_cv_reply(&buf[..n]) {
-                Some(CvReply::Result { cv: got, value }) if got == cv => return Ok(value),
-                Some(CvReply::Result { .. }) => continue,
-                Some(CvReply::Nack) => return Err(CvError::Nack),
-                Some(CvReply::NackShortCircuit) => return Err(CvError::ShortCircuit),
-                None => continue,
+            match z21::parse_cv_reply(&buf[..n]) {
+                Some(z21::Event::CvResult { cv: got, value }) if got == cv => return Ok(value),
+                Some(z21::Event::CvResult { .. }) => continue,
+                Some(z21::Event::CvNack) => return Err(CvError::Nack),
+                Some(z21::Event::CvNackSc) => return Err(CvError::ShortCircuit),
+                Some(_) | None => continue,
             }
         }
     }

@@ -27,7 +27,8 @@ This document is the canonical architecture reference. The
    to the rails itself: BigFred owns layouts, roster, SSO, remotes, and
    the dcc-bus daemon. `locoProgramming.mode: direct` is the exception —
    CV / address frames then go UDP to a configured Z21 / RailBOX
-   (`crates/z21-lan`). F2 / ops-track pulses still use dcc-bus.
+   (`dcc-bigfred-proto-z21` codec; wizard owns the socket). F2 / ops-track
+   pulses still use dcc-bus.
    wireless-programmer owns Soft-AP / Z21-dispatch programming of
    physical handsets.
 2. **Loopback HTTP only.** `bigfredUrl` must be loopback `http://`. This
@@ -48,9 +49,12 @@ This document is the canonical architecture reference. The
    watched with inotify. Invalid JSON keeps the previous config. Changes
    to `http` / CORS require a process restart (the listener and
    `CorsLayer` are bound at start).
-7. **Sibling `wp-proto`.** Wire types for the wireless-programmer Unix
-   socket come from `../wireless-programmer/crates/wp-proto` (cloned in
-   CI). The SPA never opens that socket.
+7. **Git protocol crates.** Wire types for the wireless-programmer Unix
+   socket come from `wp-proto` (git tag `v0.2` on
+   [dcc-bigfred/wireless-programmer](https://github.com/dcc-bigfred/wireless-programmer)).
+   Z21 framing comes from `dcc-bigfred-proto-z21` (git tag `v0.1.0` on
+   [dcc-bigfred/proto](https://github.com/dcc-bigfred/proto)).
+   The SPA never opens the Unix socket.
 8. **Foreground tokio daemon.** Unlike microwaf / wireless-programmer
    (`std::thread`), the wizard is an Axum/tokio process: HTTP, two
    dcc-bus WebSockets, and Unix-socket round-trips share the runtime.
@@ -109,7 +113,7 @@ spawn the inotify reloader, bind `:8091`, serve until SIGINT/SIGTERM.
 
 ```
 bigfred-wizard/
-├── Cargo.toml                 # workspace: binary + crates/z21-lan
+├── Cargo.toml                 # workspace: binary crate
 ├── Makefile                   # web-build, host, musl, test, dev-*
 ├── README.md                  # end-user description
 ├── ARCHITECTURE.md            # this file
@@ -118,7 +122,6 @@ bigfred-wizard/
 ├── dev-config.json.example
 ├── docs/screenshot-main.png
 ├── .github/workflows/{ci,release}.yml
-├── crates/z21-lan/            # Z21 LAN UDP CV / POM packets
 ├── src/                       # Axum daemon
 │   ├── main.rs                # listen, router, SPA fallback
 │   ├── config.rs / config_watch.rs
@@ -136,8 +139,9 @@ bigfred-wizard/
     └── scripts/check-offline-bundle.mjs
 ```
 
-One binary crate plus `z21-lan`, with an npm frontend compiled into that binary.
+One binary crate with an npm frontend compiled into that binary.
 `bigfred-client` comes from [dcc-bigfred/sdk](https://github.com/dcc-bigfred/sdk) (`rust/crates/bigfred-client`, git `main`).
+Z21 wire bytes come from [dcc-bigfred/proto](https://github.com/dcc-bigfred/proto) (`dcc-bigfred-proto-z21`, git tag `v0.1.0`).
 
 ---
 
@@ -160,7 +164,8 @@ One binary crate plus `z21-lan`, with an npm frontend compiled into that binary.
 selects a `LocoProgrammer` per request. `src/bigfred` maps
 `bigfred_client::Error` onto `ApiError`. `bigfred::pin` shares bearer
 extraction. `wireless_api` depends on `wp-proto` only. Direct Z21 CV
-talks through `z21-lan`. The SPA depends on the daemon’s HTTP surface,
+talks through `dcc-bigfred-proto-z21` plus a tokio UDP socket in the wizard.
+The SPA depends on the daemon’s HTTP surface,
 not on Rust types (hand-written TypeScript DTOs in
 `web/src/api/types.ts`).
 
@@ -276,7 +281,7 @@ flowchart LR
     DccP --> Dcc["DccBusClient"]
     Dcc -->|"loco.cvRead/Write loco.addrGet/Set"| Prog["WS programming"]
     API -->|"loco.setFunction ON/OFF"| Drive["WS drive + Impersonate-As"]
-    Z21P -->|"UDP CV / POM"| Lan["z21-lan"]
+    Z21P -->|"UDP CV / POM"| Lan["dcc-bigfred-proto-z21"]
     Prog --> BF["BigFred dcc-bus"]
     Drive --> BF
 ```
@@ -398,9 +403,8 @@ BIGFRED_DATA_DIR=$PWD/.dev-data bigfred …
 ```
 
 CI (`.github/workflows/ci.yml`): rustfmt, clippy, `cargo test` +
-`release-assertions`, clone `wireless-programmer` for `wp-proto`, then
-musl builds for arm64 and amd64 with the SPA embedded. Tagged `v*`
-builds feed hub OS.
+`release-assertions`, then musl builds for arm64 and amd64 with the SPA
+embedded. Tagged `v*` builds feed hub OS.
 
 ---
 

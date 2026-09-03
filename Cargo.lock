@@ -163,6 +163,7 @@ dependencies = [
  "axum",
  "bigfred-client",
  "clap",
+ "dcc-bigfred-proto-z21",
  "futures",
  "notify",
  "qrcode",
@@ -178,7 +179,6 @@ dependencies = [
  "url",
  "uuid",
  "wp-proto",
- "z21-lan",
 ]
 
 [[package]]
@@ -333,6 +333,14 @@ name = "data-encoding"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
+
+[[package]]
+name = "dcc-bigfred-proto-z21"
+version = "0.1.0"
+source = "git+https://github.com/dcc-bigfred/proto.git?tag=v0.1.0#8cab3db36ba2f5c3c75776c68a747373e7248f12"
+dependencies = [
+ "heapless",
+]
 
 [[package]]
 name = "digest"
@@ -561,10 +569,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "hash32"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
+
+[[package]]
+name = "heapless"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
+dependencies = [
+ "hash32",
+ "stable_deref_trait",
+]
 
 [[package]]
 name = "heck"
@@ -2043,6 +2070,7 @@ checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 [[package]]
 name = "wp-proto"
 version = "0.2.0"
+source = "git+https://github.com/dcc-bigfred/wireless-programmer.git?tag=v0.2#52db3475d02185c4584ce6b3835d10f0b9cbf025"
 dependencies = [
  "serde",
  "serde_json",
@@ -2076,14 +2104,6 @@ dependencies = [
  "quote",
  "syn 2.0.119",
  "synstructure",
-]
-
-[[package]]
-name = "z21-lan"
-version = "0.1.0"
-dependencies = [
- "thiserror 1.0.69",
- "tokio",
 ]
 
 [[package]]
