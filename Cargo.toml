@@ -33,10 +33,10 @@ thiserror = "1"
 notify = "8"
 url = "2"
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
-# Wire types for the wireless-programmer Unix socket.
-wp-proto = { git = "https://github.com/dcc-bigfred/wireless-programmer.git", tag = "v0.2" }
-# Z21 LAN codec (no sockets). Git HTTPS so a local proto checkout is not required.
-dcc-bigfred-proto-z21 = { git = "https://github.com/dcc-bigfred/proto.git", tag = "v0.1.0" }
+# Git HTTPS so sibling checkouts are not required. Pin via Cargo.lock;
+# `make update-deps` pulls the latest main of these crates.
+wp-proto = { git = "https://github.com/dcc-bigfred/wireless-programmer.git", branch = "main" }
+dcc-bigfred-proto-z21 = { git = "https://github.com/dcc-bigfred/proto.git", branch = "main" }
 bigfred-client = { git = "https://github.com/dcc-bigfred/sdk.git", branch = "main" }
 
 [profile.release]

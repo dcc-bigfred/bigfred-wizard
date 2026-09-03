@@ -50,10 +50,11 @@ This document is the canonical architecture reference. The
    to `http` / CORS require a process restart (the listener and
    `CorsLayer` are bound at start).
 7. **Git protocol crates.** Wire types for the wireless-programmer Unix
-   socket come from `wp-proto` (git tag `v0.2` on
+   socket come from `wp-proto` (`main` on
    [dcc-bigfred/wireless-programmer](https://github.com/dcc-bigfred/wireless-programmer)).
-   Z21 framing comes from `dcc-bigfred-proto-z21` (git tag `v0.1.0` on
+   Z21 framing comes from `dcc-bigfred-proto-z21` (`main` on
    [dcc-bigfred/proto](https://github.com/dcc-bigfred/proto)).
+   `Cargo.lock` pins the commit; `make update-deps` pulls latest `main`.
    The SPA never opens the Unix socket.
 8. **Foreground tokio daemon.** Unlike microwaf / wireless-programmer
    (`std::thread`), the wizard is an Axum/tokio process: HTTP, two
@@ -141,7 +142,7 @@ bigfred-wizard/
 
 One binary crate with an npm frontend compiled into that binary.
 `bigfred-client` comes from [dcc-bigfred/sdk](https://github.com/dcc-bigfred/sdk) (`rust/crates/bigfred-client`, git `main`).
-Z21 wire bytes come from [dcc-bigfred/proto](https://github.com/dcc-bigfred/proto) (`dcc-bigfred-proto-z21`, git tag `v0.1.0`).
+Z21 wire bytes come from [dcc-bigfred/proto](https://github.com/dcc-bigfred/proto) (`dcc-bigfred-proto-z21`, git `main`).
 
 ---
 
@@ -385,6 +386,7 @@ make web-build          # npm ci && vite build → web/dist
 make host               # native binary (runs web-build first)
 make release-musl       # dist/bigfred-wizard-linux-arm64
 make test
+make update-deps        # bump git crates (wp-proto, proto-z21, bigfred-client) to main
 ```
 
 ```bash

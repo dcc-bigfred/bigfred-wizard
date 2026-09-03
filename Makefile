@@ -25,7 +25,7 @@ else
 endif
 
 .PHONY: all build web-build release-musl host test test-release-assertions \
-	fmt clippy clean dist dev-backend dev-web deploy-hub
+	fmt clippy clean dist dev-backend dev-web deploy-hub update-deps
 
 all: build
 
@@ -80,6 +80,14 @@ fmt:
 
 clippy:
 	$(CARGO) clippy --all-targets -- -D warnings
+
+# Refresh git crates (wp-proto, dcc-bigfred-proto-z21, bigfred-client) to
+# latest main and rewrite Cargo.lock. Commit the lockfile afterwards.
+update-deps:
+	$(CARGO) update \
+		-p wp-proto \
+		-p dcc-bigfred-proto-z21 \
+		-p bigfred-client
 
 dev-backend-isolated:
 	BIGFRED_DATA_DIR=$(CURDIR)/.dev-data \
