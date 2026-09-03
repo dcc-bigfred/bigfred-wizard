@@ -81,8 +81,8 @@ fmt:
 clippy:
 	$(CARGO) clippy --all-targets -- -D warnings
 
-# Refresh git crates (wp-proto, dcc-bigfred-proto-z21, bigfred-client) to
-# latest main and rewrite Cargo.lock. Commit the lockfile afterwards.
+# Refresh git crates (wp-proto, dcc-bigfred-proto-z21, bigfred-client) and
+# rewrite Cargo.lock. Commit the lockfile afterwards.
 update-deps:
 	$(CARGO) update \
 		-p wp-proto \

@@ -54,7 +54,10 @@ This document is the canonical architecture reference. The
    [dcc-bigfred/wireless-programmer](https://github.com/dcc-bigfred/wireless-programmer)).
    Z21 framing comes from `dcc-bigfred-proto-z21` (`main` on
    [dcc-bigfred/proto](https://github.com/dcc-bigfred/proto)).
-   `Cargo.lock` pins the commit; `make update-deps` pulls latest `main`.
+   The BigFred HTTP/WS client is `bigfred-client` (`master` on
+   [dcc-bigfred/bigfred](https://github.com/dcc-bigfred/bigfred)).
+   `Cargo.lock` pins the commit; `make update-deps` pulls the tracked
+   branch of each crate.
    The SPA never opens the Unix socket.
 8. **Foreground tokio daemon.** Unlike microwaf / wireless-programmer
    (`std::thread`), the wizard is an Axum/tokio process: HTTP, two
@@ -141,7 +144,7 @@ bigfred-wizard/
 ```
 
 One binary crate with an npm frontend compiled into that binary.
-`bigfred-client` comes from [dcc-bigfred/sdk](https://github.com/dcc-bigfred/sdk) (`rust/crates/bigfred-client`, git `main`).
+`bigfred-client` comes from [dcc-bigfred/bigfred](https://github.com/dcc-bigfred/bigfred) (`rust/crates/bigfred-client`, git `master`).
 Z21 wire bytes come from [dcc-bigfred/proto](https://github.com/dcc-bigfred/proto) (`dcc-bigfred-proto-z21`, git `main`).
 
 ---
@@ -152,7 +155,7 @@ Z21 wire bytes come from [dcc-bigfred/proto](https://github.com/dcc-bigfred/prot
 |---|---|---|
 | **config** | `bigfred-wizard.json` + `.example` seed, `PublicConfig` (no PSK / no OAuth secret), builtin redirect URIs, `BigFredConfig` snapshot | filesystem |
 | **config_watch** | inotify on the config directory, 300 ms debounce, ignore `.example` / editor junk | inotify thread |
-| **bigfred-client** | Git dep on [dcc-bigfred/sdk](https://github.com/dcc-bigfred/sdk) (`rust/crates/bigfred-client`). OAuth drop-in + token exchange, HTTP forward, dcc-bus WS (programming + drive), `apis::verify_pin`. Owns wire types (`Ack`, `CvEntry`, `Status`) | HTTP / WS / fs |
+| **bigfred-client** | Git dep on [dcc-bigfred/bigfred](https://github.com/dcc-bigfred/bigfred) (`rust/crates/bigfred-client`). OAuth drop-in + token exchange, HTTP forward, dcc-bus WS (programming + drive), `apis::verify_pin`. Owns wire types (`Ack`, `CvEntry`, `Status`) | HTTP / WS / fs |
 | **bigfred/** | Axum wrappers: `oauth::token`, `pin::verify_pin`, `proxy::proxy`; `From<bigfred_client::Error> for ApiError` | via bigfred-client |
 | **loco_programming** | `LocoProgrammer` trait; `DccBusProgrammer` and `Z21Programmer`; `Hub::select` from live `locoProgramming.mode` | WS or UDP |
 | **programming_api** | HTTP face of CV/address/F2 pulse; SPA never speaks WS | via loco_programming / bigfred-client |
@@ -386,7 +389,7 @@ make web-build          # npm ci && vite build → web/dist
 make host               # native binary (runs web-build first)
 make release-musl       # dist/bigfred-wizard-linux-arm64
 make test
-make update-deps        # bump git crates (wp-proto, proto-z21, bigfred-client) to main
+make update-deps        # bump git crates (wp-proto, proto-z21, bigfred-client)
 ```
 
 ```bash
