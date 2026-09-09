@@ -33,10 +33,11 @@ thiserror = "1"
 notify = "8"
 url = "2"
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
-# Git HTTPS so sibling checkouts are not required. Pin via Cargo.lock;
-# `make update-deps` pulls the latest branch of these crates.
+# Git HTTPS so sibling checkouts are not required (wp-proto, bigfred-client).
+# Z21 atoms come from the sibling proto checkout (`../proto/rust/z21`),
+# pinned in CI to tag go/v0.1.1.
 wp-proto = { git = "https://github.com/dcc-bigfred/wireless-programmer.git", branch = "main" }
-dcc-bigfred-proto-z21 = { git = "https://github.com/dcc-bigfred/proto.git", branch = "main" }
+dcc-bigfred-proto-z21 = { path = "../proto/rust/z21" }
 bigfred-client = { git = "https://github.com/dcc-bigfred/bigfred.git", branch = "master" }
 
 [profile.release]

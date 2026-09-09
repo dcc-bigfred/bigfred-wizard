@@ -1,3 +1,5 @@
+# Release consumes musl artifacts from ci.yml (which checkouts sibling proto
+# for the path dep `../proto/rust/z21`).
 name: Release
 
 on:
