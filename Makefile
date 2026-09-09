@@ -81,12 +81,11 @@ fmt:
 clippy:
 	$(CARGO) clippy --all-targets -- -D warnings
 
-# Refresh git crates (wp-proto, dcc-bigfred-proto-z21, bigfred-client) and
-# rewrite Cargo.lock. Commit the lockfile afterwards.
+# Refresh git crates (wp-proto, bigfred-client) and rewrite Cargo.lock.
+# dcc-bigfred-proto-z21 is a path dep on ../proto/rust/z21 (CI pins go/v0.1.1).
 update-deps:
 	$(CARGO) update \
 		-p wp-proto \
-		-p dcc-bigfred-proto-z21 \
 		-p bigfred-client
 
 dev-backend-isolated:
