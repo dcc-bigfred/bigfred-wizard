@@ -1,3 +1,7 @@
+---
+title: BigFred Wizard
+---
+
 # BigFred Wizard
 
 Wizard stoi na tablecie imprezy i prowadzi gości przez to, co trzeba zrobić, żeby jechać na makiecie. Organizator loguje się raz. Potem uczestnicy wybierają duże kafelki i idą za krokami na ekranie.
