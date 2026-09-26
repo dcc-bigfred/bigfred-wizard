@@ -1,19 +1,19 @@
 ---
 title: BigFred Wizard
+menu:
+  - remotes.md: "Supported handsets"
 ---
 
 # BigFred Wizard
 
-Wizard sits on the event tablet and walks guests through what they need to do to run on the layout. The organiser signs in once. After that, participants pick large tiles and follow the steps on the screen.
+Put a tablet on the table. With BigFred Wizard every guest can create an account, program a locomotive address, pair a handset or set up the phone app.
 
-Wizard speaks Polish, English and German. It can run full screen, like a kiosk.
+A few clicks cover the basics so people can drive. The advanced functions live in the phone app.
 
-## What you can do
+## What do guests do on the Wizard tablet?
 
-- See a short “where to start” sequence for the event.
-- Create a participant account: login, PIN and reserved locomotive addresses.
-- Set up driving from a phone — the BigFred Android app or the page in a browser.
-- Set up a Roco WlanMaus or the RailBOX app.
-- Program a wireless LongFred or WiFred handset.
-- Program an older, wired Digitrax FRED.
-- Enter a locomotive: its DCC address and its place in the roster.
+- Create a user account
+- Add a vehicle with a DCC address chosen automatically
+- Program the address into the vehicle by picking it from a list
+- Pair a wireless handset with the system, **without typing the WiFi password. Wizard finds the switched-on handset and writes the WiFi credentials itself**
+- People using FREDi can enter any DCC address into it in a few clicks

@@ -1,19 +1,19 @@
 ---
 title: BigFred Wizard
+menu:
+  - remotes.md: "Obsługiwane piloty"
 ---
 
 # BigFred Wizard
 
-Wizard stoi na tablecie imprezy i prowadzi gości przez to, co trzeba zrobić, żeby jechać na makiecie. Organizator loguje się raz. Potem uczestnicy wybierają duże kafelki i idą za krokami na ekranie.
+Postaw tablet na stole, na którym dzięki BigFred Wizard każdy z gości może utworzyć sobie konto, zaprogramować adres w lokomotywie, sparować pilota czy skonfigurować aplikację na telefon.
 
-Wizard mówi po polsku, angielsku i niemiecku. Może działać na pełnym ekranie, jak kiosk.
+Wystarczy kilka kliknięć aby załatwić podstawowe sprawy i móc jeździć, reszta zaawansowanych funkcji znajduje się w aplikacji na telefon.
 
-## Co można zrobić
+## Co goście załatwią na tablecie z wizardem?
 
-- Zobaczyć krótką kolejność „od czego zacząć” na imprezie.
-- Założyć konto uczestnika: login, PIN i zarezerwowane adresy lokomotyw.
-- Ustawić jazdę z telefonu — aplikacja BigFred na Androida albo strona w przeglądarce.
-- Ustawić Roco WlanMaus albo aplikację RailBOX.
-- Zaprogramować bezprzewodowy pilot LongFred lub WiFred.
-- Zaprogramować starszy, przewodowy Digitrax FRED.
-- Wpisać lokomotywę: adres DCC i pozycję w rosterze.
+- Utworzą sobie konto użytkownika
+- Dodadzą pojazd wraz z adresem DCC dobieranym automatycznie
+- Zaprogramują adres w pojeździe wybierając go z listy
+- Sparują pilota bezprzewodowego z systemem, **nawet bez potrzeby wpisywania hasła do WiFi! Wizard wykryje włączonego pilota i wpisze mu dane dostępowe do WiFi samodzielnie**
+- Osoby używające FREDi mogą kilkoma kliknięciami wpisać do niego dowolny adres DCC
